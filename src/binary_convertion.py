@@ -2,10 +2,10 @@ import struct
 from pathlib import Path
 
 # Input binary STL
-input_path = Path("data/cover_v1.stl")
+input_path = Path("data/cover2.stl")
 
 # Output ASCII STL
-output_path = Path("cover_v1.stl_ascii.stl")
+output_path = Path("cover2.stl_ascii.stl")
 
 # -----------------------------
 # Read binary STL
