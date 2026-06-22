@@ -1,22 +1,39 @@
 import argparse
 
-def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float, inner_w: float, inner_h: float, thickness: float):
-    # src/generate_rect_cover.py
-    # eg "cover4.stl_ascii.stl"
+
+def generate_cover_and_file(output_file_name: str, outer_w: float, outer_h: float, wall_thickness: float, total_height: float):
+    """
+    Generate a hollow rectangular cover (box lid) as an ASCII STL file.
+    The cover has a solid top, walls going down, and is open at the bottom.
+    It can be placed over a rectangular frame to close it.
+
+    Shape (cross-section):
+        |====================|  <- top (solid)
+        |  |              |  |
+        |  |   (hollow)   |  |  <- walls with wall_thickness
+        |  |              |  |
+        |__|              |__|  <- open bottom
+    """
     output_file = output_file_name
 
-    # Dimensions (mm)
-    # outer_w = 70.0  # 7 cm outer width
-    # outer_h = 70.0  # 7 cm outer height
-    # inner_w = 60.0  # 6 cm inner width
-    # inner_h = 60.0  # 6 cm inner height
-    # thickness = 4.0  # keep 4mm height
+    inner_w = outer_w - 2 * wall_thickness
+    inner_h = outer_h - 2 * wall_thickness
+    cavity_height = total_height - wall_thickness  # height of the hollow cavity
 
     # Half-dimensions (centered at origin)
-    ow = outer_w / 2  # 35
-    oh = outer_h / 2  # 35
-    iw = inner_w / 2  # 30
-    ih = inner_h / 2  # 30
+    ow = outer_w / 2
+    oh = outer_h / 2
+    iw = inner_w / 2
+    ih = inner_h / 2
+
+    z0 = 0.0
+    z1 = cavity_height  # top of inner walls / bottom of top plate
+    z2 = total_height   # top surface
+
+    # Outer corners
+    o = [(-ow, -oh), (ow, -oh), (ow, oh), (-ow, oh)]
+    # Inner corners
+    i = [(-iw, -ih), (iw, -ih), (iw, ih), (-iw, ih)]
 
     def write_facet(f, normal, v1, v2, v3):
         f.write(f"  facet normal {normal[0]} {normal[1]} {normal[2]}\n")
@@ -30,42 +47,33 @@ def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float
     with open(output_file, "w") as f:
         f.write("solid ascii_model\n")
 
-        z0 = 0.0
-        z1 = thickness
+        # --- Top face (z=total_height), solid rectangle, normal (0, 0, 1) ---
+        write_facet(f, (0, 0, 1),
+                    (-ow, -oh, z2), (ow, -oh, z2), (ow, oh, z2))
+        write_facet(f, (0, 0, 1),
+                    (-ow, -oh, z2), (ow, oh, z2), (-ow, oh, z2))
 
-        # Outer corners (bottom-left, bottom-right, top-right, top-left)
-        o = [(-ow, -oh), (ow, -oh), (ow, oh), (-ow, oh)]
-        # Inner corners
-        i = [(-iw, -ih), (iw, -ih), (iw, ih), (-iw, ih)]
-
-        # --- Bottom face (z=0), normal (0, 0, -1) ---
-        # 8 triangles to form the rectangular ring on bottom
+        # --- Bottom ring face (z=0), normal (0, 0, -1) ---
+        # Ring between outer and inner perimeter (open in the middle)
         for side in range(4):
             n = (side + 1) % 4
-            # Triangle: outer[side], inner[side], inner[next]
             write_facet(f, (0, 0, -1),
                         (o[side][0], o[side][1], z0),
                         (i[side][0], i[side][1], z0),
                         (i[n][0], i[n][1], z0))
-            # Triangle: outer[side], inner[next], outer[next]
             write_facet(f, (0, 0, -1),
                         (o[side][0], o[side][1], z0),
                         (i[n][0], i[n][1], z0),
                         (o[n][0], o[n][1], z0))
 
-        # --- Top face (z=thickness), normal (0, 0, 1) ---
-        for side in range(4):
-            n = (side + 1) % 4
-            write_facet(f, (0, 0, 1),
-                        (o[side][0], o[side][1], z1),
-                        (i[n][0], i[n][1], z1),
-                        (i[side][0], i[side][1], z1))
-            write_facet(f, (0, 0, 1),
-                        (o[side][0], o[side][1], z1),
-                        (o[n][0], o[n][1], z1),
-                        (i[n][0], i[n][1], z1))
+        # --- Inner ceiling (z=cavity_height), solid rectangle, normal (0, 0, -1) ---
+        # This is the underside of the top plate, closing the cavity
+        write_facet(f, (0, 0, -1),
+                    (-iw, -ih, z1), (iw, ih, z1), (iw, -ih, z1))
+        write_facet(f, (0, 0, -1),
+                    (-iw, -ih, z1), (-iw, ih, z1), (iw, ih, z1))
 
-        # --- Outer walls (4 sides) ---
+        # --- Outer walls (4 sides), z=0 to z=total_height ---
         normals_outer = [(0, -1, 0), (1, 0, 0), (0, 1, 0), (-1, 0, 0)]
         for side in range(4):
             n = (side + 1) % 4
@@ -73,13 +81,14 @@ def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float
             write_facet(f, (nx, ny, nz),
                         (o[side][0], o[side][1], z0),
                         (o[n][0], o[n][1], z0),
-                        (o[n][0], o[n][1], z1))
+                        (o[n][0], o[n][1], z2))
             write_facet(f, (nx, ny, nz),
                         (o[side][0], o[side][1], z0),
-                        (o[n][0], o[n][1], z1),
-                        (o[side][0], o[side][1], z1))
+                        (o[n][0], o[n][1], z2),
+                        (o[side][0], o[side][1], z2))
 
-        # --- Inner walls (4 sides, normals point inward) ---
+        # --- Inner walls (4 sides), z=0 to z=cavity_height ---
+        # Normals point inward (toward the hollow center)
         normals_inner = [(0, 1, 0), (-1, 0, 0), (0, -1, 0), (1, 0, 0)]
         for side in range(4):
             n = (side + 1) % 4
@@ -95,21 +104,21 @@ def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float
 
         f.write("endsolid ascii_model\n")
 
-    print(f"Generated: {output_file}")
-    print(f"  Outer: {outer_w}mm x {outer_h}mm (7cm x 7cm)")
-    print(f"  Inner hole: {inner_w}mm x {inner_h}mm (6cm x 6cm)")
-    print(f"  Height: {thickness}mm")
-    print(f"  Wall thickness: {(outer_w - inner_w) / 2}mm")
+    print(f"Generated hollow cover: {output_file}")
+    print(f"  Outer: {outer_w}mm x {outer_h}mm")
+    print(f"  Inner cavity: {inner_w}mm x {inner_h}mm")
+    print(f"  Total height: {total_height}mm")
+    print(f"  Wall thickness: {wall_thickness}mm")
+    print(f"  Cavity depth: {cavity_height}mm")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Generate a rectangular frame STL file.")
-    parser.add_argument("output_file_name", type=str, help="Output STL file name (e.g. cover4.stl_ascii.stl)")
+    parser = argparse.ArgumentParser(description="Generate a hollow rectangular cover (box lid) STL file.")
+    parser.add_argument("output_file_name", type=str, help="Output STL file name (e.g. cover_lid.stl_ascii.stl)")
     parser.add_argument("outer_w", type=float, help="Outer width in mm")
     parser.add_argument("outer_h", type=float, help="Outer height in mm")
-    parser.add_argument("inner_w", type=float, help="Inner width in mm")
-    parser.add_argument("inner_h", type=float, help="Inner height in mm")
-    parser.add_argument("thickness", type=float, help="Thickness (height) in mm")
+    parser.add_argument("wall_thickness", type=float, help="Wall and top plate thickness in mm")
+    parser.add_argument("total_height", type=float, help="Total height of the cover in mm")
 
     args = parser.parse_args()
-    generate_form_and_file(args.output_file_name, args.outer_w, args.outer_h, args.inner_w, args.inner_h, args.thickness)
+    generate_cover_and_file(args.output_file_name, args.outer_w, args.outer_h, args.wall_thickness, args.total_height)
