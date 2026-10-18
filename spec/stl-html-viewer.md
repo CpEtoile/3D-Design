@@ -87,16 +87,19 @@ Invalid input or output errors must return a non-zero exit status and a concise 
 
 ### Operations guide
 
-Generated HTML must show an `Operations` section containing:
+Generated HTML must show a `Controls legend` section containing:
 
-- Left mouse drag: orbit camera around model.
-- Right mouse drag: pan camera.
-- Mouse wheel: zoom camera.
-- Position fields: move model along X, Y, or Z axis.
-- Rotation fields: rotate model around X, Y, or Z axis.
-- Uniform scale field: change model size.
-- `Reset view and edits`: restore original transform and fitted camera.
-- `Save as STL`: download current edited model as binary STL.
+- `Explore model` group:
+  - Left mouse drag: orbit camera around model.
+  - Right mouse drag: pan camera.
+  - Mouse wheel: zoom camera.
+- `Manipulate model` group:
+  - Position fields: move model along X, Y, or Z axis.
+  - Rotation fields: rotate model around X, Y, or Z axis.
+  - Uniform scale field: change model size.
+  - `Reset view and edits`: restore original transform and fitted camera.
+  - `Save as STL`: download current edited model as binary STL.
+- `Show controls` toggles legend visibility without changing model state.
 
 Editing applies to the complete loaded mesh. It does not modify individual triangles or alter topology.
 

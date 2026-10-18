@@ -40,12 +40,13 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     .operations {{ margin: 16px 0 0; padding-left: 20px; color: #d1d5db; font-size: .8rem; line-height: 1.5; }}
     .operations li {{ margin: 6px 0; }}
     .operations strong {{ color: #bfdbfe; }}
+    .legend-group h3 {{ margin: 12px 0 6px; font-size: .85rem; color: #bfdbfe; }}
     #status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
     @media (max-width: 700px) {{ main {{ grid-template-columns: 1fr; grid-template-rows: minmax(360px, 1fr) auto; height: auto; min-height: calc(100vh - 53px); }} aside {{ border-left: 0; border-top: 1px solid #374151; }} }}
   </style>
 </head>
 <body>
-  <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Show operations</button></header>
+  <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Hide controls</button></header>
   <main>
     <section id="viewport" aria-label="3D STL model viewer"></section>
     <aside>
@@ -69,18 +70,26 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         <button id="reset" class="secondary">Reset view and edits</button>
         <button id="save">Save as STL</button>
       </div>
-      <fieldset id="operations-panel" tabindex="-1">
-        <legend>Operations</legend>
-        <ul class="operations">
-          <li><strong>Left mouse drag:</strong> orbit camera around model.</li>
-          <li><strong>Right mouse drag:</strong> pan camera.</li>
-          <li><strong>Mouse wheel:</strong> zoom camera.</li>
-          <li><strong>Position fields:</strong> move model on X, Y, or Z axis.</li>
-          <li><strong>Rotation fields:</strong> rotate model around X, Y, or Z axis.</li>
-          <li><strong>Uniform scale:</strong> change model size.</li>
-          <li><strong>Reset view and edits:</strong> restore original transform and fitted camera.</li>
-          <li><strong>Save as STL:</strong> download current edits as binary STL.</li>
-        </ul>
+      <fieldset id="controls-legend" tabindex="-1">
+        <legend>Controls legend</legend>
+        <div class="legend-group">
+          <h3>Explore model</h3>
+          <ul class="operations">
+            <li><strong>[Orbit] Left mouse drag:</strong> rotate camera around model.</li>
+            <li><strong>[Pan] Right mouse drag:</strong> move camera.</li>
+            <li><strong>[Zoom] Mouse wheel:</strong> zoom camera in or out.</li>
+          </ul>
+        </div>
+        <div class="legend-group">
+          <h3>Manipulate model</h3>
+          <ul class="operations">
+            <li><strong>[Move] Position fields:</strong> move model on X, Y, or Z axis.</li>
+            <li><strong>[Rotate] Rotation fields:</strong> rotate model around X, Y, or Z axis.</li>
+            <li><strong>[Scale] Uniform scale:</strong> change model size.</li>
+            <li><strong>[Reset] Reset view and edits:</strong> restore original transform and fitted camera.</li>
+            <li><strong>[Save] Save as STL:</strong> download current edits as binary STL.</li>
+          </ul>
+        </div>
       </fieldset>
     </aside>
   </main>
@@ -200,9 +209,11 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     document.querySelector('#reset').addEventListener('click', reset);
     document.querySelector('#save').addEventListener('click', downloadEditedStl);
     document.querySelector('#help').addEventListener('click', () => {{
-      const panel = document.querySelector('#operations-panel');
-      panel.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
-      panel.focus({{ preventScroll: true }});
+      const panel = document.querySelector('#controls-legend');
+      const visible = !panel.hidden;
+      panel.hidden = visible;
+      document.querySelector('#help').textContent = visible ? 'Show controls' : 'Hide controls';
+      if (!visible) panel.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
     }});
     status.textContent = `${{mesh.geometry.getAttribute('position').count / 3}} triangles`;
     window.addEventListener('resize', resize);

@@ -43,8 +43,12 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "position" in html
     assert "rotation" in html
     assert "scale" in html
-    assert "Operations" in html
-    assert "Show operations" in html
+    assert "Controls legend" in html
+    assert "Explore model" in html
+    assert "Manipulate model" in html
+    assert "controls-legend" in html
+    assert "Show controls" in html
+    assert "Hide controls" in html
     assert "Left mouse drag" in html
     assert "Right mouse drag" in html
     assert "Mouse wheel" in html
