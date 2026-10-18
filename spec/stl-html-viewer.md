@@ -71,6 +71,7 @@ Invalid input or output errors must return a non-zero exit status and a concise 
 - `Reset view` control restores fitted camera.
 - Model centered and scaled to fit viewport.
 - Responsive layout for desktop and mobile browser widths.
+- Visible operations guide explains every available control, gesture, and result.
 
 ### Editing controls
 
@@ -83,6 +84,19 @@ Invalid input or output errors must return a non-zero exit status and a concise 
 - Export name defaults to the source name with `-edited.stl` suffix.
 - Save uses current position, rotation, and scale values.
 - Save operation does not overwrite the source STL or generated HTML.
+
+### Operations guide
+
+Generated HTML must show an `Operations` section containing:
+
+- Left mouse drag: orbit camera around model.
+- Right mouse drag: pan camera.
+- Mouse wheel: zoom camera.
+- Position fields: move model along X, Y, or Z axis.
+- Rotation fields: rotate model around X, Y, or Z axis.
+- Uniform scale field: change model size.
+- `Reset view and edits`: restore original transform and fitted camera.
+- `Save as STL`: download current edited model as binary STL.
 
 Editing applies to the complete loaded mesh. It does not modify individual triangles or alter topology.
 

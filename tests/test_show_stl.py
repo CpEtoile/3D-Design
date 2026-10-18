@@ -43,6 +43,12 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "position" in html
     assert "rotation" in html
     assert "scale" in html
+    assert "Operations" in html
+    assert "Show operations" in html
+    assert "Left mouse drag" in html
+    assert "Right mouse drag" in html
+    assert "Mouse wheel" in html
+    assert "Save as STL" in html
     assert "data:model/stl;base64," in html
 
 
