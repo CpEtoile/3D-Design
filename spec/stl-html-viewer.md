@@ -18,7 +18,7 @@ As a 3D design user, I want to run a command with an STL path so I can inspect t
 - Fit model to camera automatically.
 - Show model metadata: file name and triangle count when available.
 - Edit rendered model transform: position, rotation, and scale.
-- Export edited model as a new binary STL file.
+- Save edited model from the HTML page as a new binary STL file.
 - Open generated HTML in default browser by default.
 - Allow explicit output path.
 - Allow generation without opening browser for scripts and CI.
@@ -79,8 +79,10 @@ Invalid input or output errors must return a non-zero exit status and a concise 
 - Uniform scale control, with an option to unlock independent axis scaling.
 - `Apply` updates the rendered model immediately.
 - `Reset edits` restores source transform.
-- `Export STL` downloads transformed geometry as a new binary STL file and never overwrites the source file.
+- `Save as STL` converts the currently edited HTML model into a new binary STL file and downloads it.
 - Export name defaults to the source name with `-edited.stl` suffix.
+- Save uses current position, rotation, and scale values.
+- Save operation does not overwrite the source STL or generated HTML.
 
 Editing applies to the complete loaded mesh. It does not modify individual triangles or alter topology.
 
@@ -90,7 +92,7 @@ Editing applies to the complete loaded mesh. It does not modify individual trian
 - Generated page loads Three.js and STLLoader from pinned CDN URLs.
 - Browser decodes embedded bytes and parses STL client-side.
 - Browser applies transforms through Three.js before export.
-- Export uses transformed triangle vertices and recalculated normals.
+- Save uses transformed triangle vertices and recalculated normals to create a binary STL.
 - No Python package installation required.
 - Generated HTML remains portable, but requires network access for CDN assets.
 
@@ -105,7 +107,8 @@ Editing applies to the complete loaded mesh. It does not modify individual trian
 - Missing input returns non-zero status without creating HTML.
 - Browser launch is skipped with `--no-open`.
 - Position, rotation, and scale controls visibly change model shape or placement.
-- Exported STL is downloadable and contains transformed model geometry.
+- Edited HTML can save its current model as a downloadable binary STL.
+- Saved STL contains transformed model geometry and opens as a valid STL file.
 - Source STL remains unchanged after editing and export.
 
 ## 9. Editing Boundary
