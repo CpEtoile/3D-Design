@@ -28,6 +28,8 @@ Viewer features:
 
 - Orbit, pan, and zoom model
 - Edit position, rotation, and scale
+- Select and move mesh vertices with X/Y/Z gizmo
+- Reset vertex edits
 - Reset view and edits
 - Save edited model as a new binary STL with `Save as STL`
 - Keep source STL unchanged

@@ -18,6 +18,8 @@ As a 3D design user, I want to run a command with an STL path so I can inspect t
 - Fit model to camera automatically.
 - Show model metadata: file name and triangle count when available.
 - Edit rendered model transform: position, rotation, and scale.
+- Select and move individual mesh vertices with an axis gizmo.
+- Preview vertex edits before saving.
 - Save edited model from the HTML page as a new binary STL file.
 - Open generated HTML in default browser by default.
 - Allow explicit output path.
@@ -27,7 +29,7 @@ As a 3D design user, I want to run a command with an STL path so I can inspect t
 
 - Editing or repairing STL geometry.
 - Mesh conversion or slicing.
-- Vertex-level sculpting, cutting, holes, and boolean operations.
+- Face extrusion, cutting, holes, boolean operations, and full CAD editing.
 - Persistent web server.
 - Support for formats other than STL.
 
@@ -101,7 +103,22 @@ Generated HTML must show a `Controls legend` section containing:
   - `Save as STL`: download current edited model as binary STL.
 - `Show controls` toggles legend visibility without changing model state.
 
-Editing applies to the complete loaded mesh. It does not modify individual triangles or alter topology.
+Transform editing applies to the complete loaded mesh. Vertex editing changes selected vertex positions without altering topology.
+
+### Vertex editing
+
+The first shape-editing phase adds direct vertex manipulation:
+
+- Click a visible vertex to select it.
+- Show X, Y, and Z axis gizmo for selected vertex.
+- Drag gizmo axis to move vertex along that axis.
+- Update all triangles connected to moved vertex immediately.
+- Keep other vertices unchanged.
+- Show edited mesh in the viewport before save.
+- `Reset vertex edits` restores vertex positions from source mesh.
+- `Save as STL` exports edited vertex positions and recalculated normals.
+
+Vertex editing changes mesh geometry but does not add or remove triangles. STL files do not retain original parametric dimensions, so controls such as wall thickness or named hole diameter are not available for arbitrary imported STL files.
 
 ## 7. Technical Design
 
@@ -130,9 +147,9 @@ Editing applies to the complete loaded mesh. It does not modify individual trian
 
 ## 9. Editing Boundary
 
-This version treats "edit shape" as transform editing. It changes model placement, orientation, and size while preserving mesh topology.
+This version treats "edit shape" as transform editing plus direct vertex movement. It changes model placement, orientation, size, and vertex positions while preserving triangle count and mesh topology.
 
-If individual vertex editing, cutting, hole creation, boolean union/subtraction, or mesh repair is required, that should be specified as a separate editor phase because it needs selection tools, topology validation, and more extensive export testing.
+Cutting, hole creation, boolean union/subtraction, face extrusion, and mesh repair remain separate editor phases because they need topology changes, validation, and more extensive export testing.
 
 ## 10. Verification
 
@@ -145,3 +162,5 @@ python src/show_stl.py empty_cube.ascii.stl --no-open
 Verify generated HTML exists, then open it in browser and confirm model renders, rotates, pans, zooms, and resets.
 
 Change position, rotation, and scale. Confirm rendered model updates. Export edited STL and confirm source file remains unchanged.
+
+Select a vertex, move it along each axis, confirm connected triangles update, reset vertex edits, and save a new STL. Confirm source file remains unchanged and saved STL contains moved vertex geometry.

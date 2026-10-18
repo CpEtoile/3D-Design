@@ -68,6 +68,23 @@ def test_supports_explicit_output_path(tmp_path):
     assert stl_path.exists()
 
 
+def test_declares_vertex_editing_controls(tmp_path):
+    stl_path = tmp_path / "model.stl"
+    stl_path.write_text(ASCII_STL)
+
+    result = run_viewer(stl_path, "--no-open")
+
+    assert result.returncode == 0
+    html = (tmp_path / "model.html").read_text()
+    assert "Vertex editing" in html
+    assert "Select vertex" in html
+    assert "vertex-gizmo" in html
+    assert "selectedVertex" in html
+    assert "connected triangles" in html
+    assert "Reset vertex edits" in html
+    assert "Save as STL" in html
+
+
 def test_missing_input_returns_error(tmp_path):
     result = run_viewer(tmp_path / "missing.stl", "--no-open")
 

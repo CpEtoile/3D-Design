@@ -41,6 +41,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     .operations li {{ margin: 6px 0; }}
     .operations strong {{ color: #bfdbfe; }}
     .legend-group h3 {{ margin: 12px 0 6px; font-size: .85rem; color: #bfdbfe; }}
+    #vertex-status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
     #status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
     @media (max-width: 700px) {{ main {{ grid-template-columns: 1fr; grid-template-rows: minmax(360px, 1fr) auto; height: auto; min-height: calc(100vh - 53px); }} aside {{ border-left: 0; border-top: 1px solid #374151; }} }}
   </style>
@@ -70,6 +71,11 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         <button id="reset" class="secondary">Reset view and edits</button>
         <button id="save">Save as STL</button>
       </div>
+      <fieldset>
+        <legend>Vertex editing</legend>
+        <p id="vertex-status">Select vertex: click a vertex on model.</p>
+        <button id="reset-vertices" class="secondary">Reset vertex edits</button>
+      </fieldset>
       <fieldset id="controls-legend" tabindex="-1">
         <legend>Controls legend</legend>
         <div class="legend-group">
@@ -103,6 +109,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     import * as THREE from 'three';
     import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
     import {{ STLLoader }} from 'three/addons/loaders/STLLoader.js';
+    import {{ TransformControls }} from 'three/addons/controls/TransformControls.js';
 
     const embeddedModel = {model_data_json};
     const viewport = document.querySelector('#viewport');
@@ -123,6 +130,21 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
 
     let mesh;
     let sourceName = {json.dumps(stl_path.name)};
+    let sourcePositions;
+    let selectedVertex;
+    const vertexRaycaster = new THREE.Raycaster();
+    const pointer = new THREE.Vector2();
+    const vertexHandle = new THREE.Mesh(
+      new THREE.SphereGeometry(1, 12, 8),
+      new THREE.MeshBasicMaterial({{ color: 0xfbbf24 }})
+    );
+    vertexHandle.name = 'vertex-gizmo';
+    vertexHandle.visible = false;
+    scene.add(vertexHandle);
+    const vertexGizmo = new TransformControls(camera, renderer.domElement);
+    vertexGizmo.setMode('translate');
+    vertexGizmo.name = 'vertex-gizmo';
+    scene.add(vertexGizmo.getHelper());
     const sourceTransform = {{ position: new THREE.Vector3(), rotation: new THREE.Euler(), scale: new THREE.Vector3(1, 1, 1) }};
 
     function resize() {{
@@ -160,9 +182,82 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       mesh.scale.setScalar(scale);
     }}
 
+    function updateVertexStatus(message) {{
+      document.querySelector('#vertex-status').textContent = message;
+    }}
+
+    function clearVertexSelection() {{
+      selectedVertex = null;
+      vertexHandle.visible = false;
+      vertexGizmo.detach();
+      updateVertexStatus('Select vertex: click a vertex on model.');
+    }}
+
+    function selectVertex(event) {{
+      if (vertexGizmo.dragging || !mesh) return;
+      const bounds = renderer.domElement.getBoundingClientRect();
+      pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+      pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+      vertexRaycaster.setFromCamera(pointer, camera);
+      const hit = vertexRaycaster.intersectObject(mesh, false)[0];
+      if (!hit || hit.faceIndex === undefined) return;
+      const positions = mesh.geometry.getAttribute('position');
+      const localPoint = mesh.worldToLocal(hit.point.clone());
+      const triangleStart = hit.faceIndex * 3;
+      let nearestIndex = triangleStart;
+      let nearestDistance = Infinity;
+      for (let index = triangleStart; index < triangleStart + 3; index += 1) {{
+        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
+        const distance = candidate.distanceToSquared(localPoint);
+        if (distance < nearestDistance) {{
+          nearestDistance = distance;
+          nearestIndex = index;
+        }}
+      }}
+      const selectedPosition = new THREE.Vector3().fromBufferAttribute(positions, nearestIndex);
+      const radius = mesh.geometry.boundingSphere?.radius || 1;
+      const epsilon = Math.max(radius * 0.00001, 0.000001);
+      const indices = [];
+      for (let index = 0; index < positions.count; index += 1) {{
+        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
+        if (candidate.distanceTo(selectedPosition) <= epsilon) indices.push(index);
+      }}
+      selectedVertex = {{ indices, position: selectedPosition.clone() }};
+      vertexHandle.position.copy(mesh.localToWorld(selectedPosition.clone()));
+      vertexHandle.scale.setScalar(Math.max(radius * 0.025, 0.1));
+      vertexHandle.visible = true;
+      vertexGizmo.attach(vertexHandle);
+      updateVertexStatus(`Selected vertex: ${{indices.length}} connected triangles. Drag axis gizmo.`);
+    }}
+
+    function updateSelectedVertex() {{
+      if (!selectedVertex) return;
+      const positions = mesh.geometry.getAttribute('position');
+      const nextPosition = mesh.worldToLocal(vertexHandle.position.clone());
+      const delta = nextPosition.clone().sub(selectedVertex.position);
+      if (delta.lengthSq() === 0) return;
+      selectedVertex.indices.forEach((index) => {{
+        const current = new THREE.Vector3().fromBufferAttribute(positions, index).add(delta);
+        positions.setXYZ(index, current.x, current.y, current.z);
+      }});
+      selectedVertex.position.copy(nextPosition);
+      positions.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+      updateVertexStatus(`Selected vertex: ${{selectedVertex.indices.length}} connected triangles updated.`);
+    }}
+
+    function resetVertices() {{
+      const positions = mesh.geometry.getAttribute('position');
+      positions.array.set(sourcePositions);
+      positions.needsUpdate = true;
+      mesh.geometry.computeVertexNormals();
+      clearVertexSelection();
+    }}
+
     function reset() {{
       document.querySelectorAll('input').forEach((input) => {{ input.value = input.id === 'scale' ? '1' : '0'; }});
       applyTransform();
+      resetVertices();
       fitCamera();
     }}
 
@@ -187,9 +282,9 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         third.fromBufferAttribute(positions, triangle * 3 + 2).applyMatrix4(mesh.matrixWorld);
         normal.subVectors(second, first).cross(new THREE.Vector3().subVectors(third, first)).normalize();
         [normal, first, second, third].forEach((vector, index) => {{
-          view.setFloat32(offset + 12 + index * 12, vector.x, true);
-          view.setFloat32(offset + 16 + index * 12, vector.y, true);
-          view.setFloat32(offset + 20 + index * 12, vector.z, true);
+          view.setFloat32(offset + index * 12, vector.x, true);
+          view.setFloat32(offset + 4 + index * 12, vector.y, true);
+          view.setFloat32(offset + 8 + index * 12, vector.z, true);
         }});
         view.setUint16(offset + 48, 0, true);
       }}
@@ -205,8 +300,13 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     mesh = new THREE.Mesh(new STLLoader().parse(bytes.buffer), new THREE.MeshStandardMaterial({{ color: 0x60a5fa, roughness: 0.65, metalness: 0.05 }}));
     scene.add(mesh);
     mesh.geometry.computeVertexNormals();
+    sourcePositions = new Float32Array(mesh.geometry.getAttribute('position').array);
+    renderer.domElement.addEventListener('pointerdown', selectVertex);
+    vertexGizmo.addEventListener('dragging-changed', (event) => {{ controls.enabled = !event.value; }});
+    vertexGizmo.addEventListener('objectChange', updateSelectedVertex);
     document.querySelectorAll('input').forEach((input) => input.addEventListener('input', applyTransform));
     document.querySelector('#reset').addEventListener('click', reset);
+    document.querySelector('#reset-vertices').addEventListener('click', resetVertices);
     document.querySelector('#save').addEventListener('click', downloadEditedStl);
     document.querySelector('#help').addEventListener('click', () => {{
       const panel = document.querySelector('#controls-legend');
