@@ -28,7 +28,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     body {{ margin: 0; min-height: 100vh; background: #111827; color: #e5e7eb; }}
     header {{ display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #374151; }}
     header h1 {{ margin: 0; font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
-    #help {{ margin-left: auto; width: auto; padding: 6px 10px; }}
+    #show-control {{ margin-left: auto; width: auto; padding: 6px 10px; }}
     main {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: calc(100vh - 53px); }}
     #viewport {{ min-width: 0; min-height: 360px; position: relative; background: #0b1220; border-right: 1px solid #374151; }}
     #viewport canvas {{ display: block; width: 100%; height: 100%; }}
@@ -51,7 +51,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
   </style>
 </head>
 <body>
-  <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Show controls</button></header>
+  <header><h1>{title}</h1><span id="status">Loading...</span><button id="show-control" class="secondary">Show controls</button></header>
   <main>
     <section id="viewport" aria-label="3D STL model viewer">
       <div id="viewport-message" hidden></div>

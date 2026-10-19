@@ -187,10 +187,9 @@ document.querySelectorAll('input').forEach((input) => input.addEventListener('in
 document.querySelector('#reset').addEventListener('click', reset);
 document.querySelector('#reset-vertices').addEventListener('click', clearVertexSelection);
 document.querySelector('#save').addEventListener('click', downloadEditedStl);
-document.querySelector('#help').addEventListener('click', () => {
+document.querySelector('#show-control').addEventListener('click', () => {
     const panel = document.querySelector('#controls-legend');
     panel.hidden = false;
-    panel.scrollIntoView({behavior: 'smooth', block: 'start'});
 });
 status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triangles`;
 window.addEventListener('resize', resize);
