@@ -2,7 +2,6 @@ import argparse
 import base64
 import html
 import json
-import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -15,7 +14,9 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     model_data = base64.b64encode(stl_bytes).decode("ascii")
     title = html.escape(stl_path.name)
     model_data_json = json.dumps(f"data:model/stl;base64,{model_data}")
-    generated_html = f'''<!doctype html>
+    source_name_json = json.dumps(stl_path.name)
+    viewer_script = Path(__file__).with_name("stl_viewer.js").read_text(encoding="utf-8")
+    return f'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -45,8 +46,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     .operations li {{ margin: 6px 0; }}
     .operations strong {{ color: #bfdbfe; }}
     .legend-group h3 {{ margin: 12px 0 6px; font-size: .85rem; color: #bfdbfe; }}
-    #vertex-status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
-    #status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
+    #vertex-status, #status {{ color: #9ca3af; font-size: .8rem; line-height: 1.4; }}
     @media (max-width: 700px) {{ main {{ grid-template-columns: 1fr; grid-template-rows: minmax(360px, 1fr) auto; height: auto; min-height: calc(100vh - 53px); }} aside {{ border-left: 0; border-top: 1px solid #374151; }} }}
   </style>
 </head>
@@ -57,6 +57,27 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       <div id="viewport-message" hidden></div>
     </section>
     <aside>
+      <fieldset id="controls-legend" tabindex="-1">
+        <legend>Controls legend</legend>
+        <div class="legend-group">
+          <h3>Explore model</h3>
+          <ul class="operations">
+            <li><strong>[Orbit] Left mouse drag:</strong> rotate camera around model.</li>
+            <li><strong>[Pan] Right mouse drag:</strong> move camera.</li>
+            <li><strong>[Zoom] Mouse wheel:</strong> zoom camera in or out.</li>
+          </ul>
+        </div>
+        <div class="legend-group">
+          <h3>Manipulate model</h3>
+          <ul class="operations">
+            <li><strong>[Move] Position fields:</strong> move model on X, Y, or Z axis.</li>
+            <li><strong>[Rotate] Rotation fields:</strong> rotate model around X, Y, or Z axis.</li>
+            <li><strong>[Scale] Uniform scale:</strong> change model size.</li>
+            <li><strong>[Reset] Reset view and edits:</strong> restore original transform and fitted camera.</li>
+            <li><strong>[Save] Save as STL:</strong> download current edits as binary STL.</li>
+          </ul>
+        </div>
+      </fieldset>
       <fieldset>
         <legend>Position</legend>
         <label>X <input id="position-x" type="number" step="0.1" value="0"></label>
@@ -82,27 +103,6 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         <p id="vertex-status">Select vertex: click a vertex on model.</p>
         <button id="reset-vertices" class="secondary">Reset vertex edits</button>
       </fieldset>
-      <fieldset id="controls-legend" tabindex="-1">
-        <legend>Controls legend</legend>
-        <div class="legend-group">
-          <h3>Explore model</h3>
-          <ul class="operations">
-            <li><strong>[Orbit] Left mouse drag:</strong> rotate camera around model.</li>
-            <li><strong>[Pan] Right mouse drag:</strong> move camera.</li>
-            <li><strong>[Zoom] Mouse wheel:</strong> zoom camera in or out.</li>
-          </ul>
-        </div>
-        <div class="legend-group">
-          <h3>Manipulate model</h3>
-          <ul class="operations">
-            <li><strong>[Move] Position fields:</strong> move model on X, Y, or Z axis.</li>
-            <li><strong>[Rotate] Rotation fields:</strong> rotate model around X, Y, or Z axis.</li>
-            <li><strong>[Scale] Uniform scale:</strong> change model size.</li>
-            <li><strong>[Reset] Reset view and edits:</strong> restore original transform and fitted camera.</li>
-            <li><strong>[Save] Save as STL:</strong> download current edits as binary STL.</li>
-          </ul>
-        </div>
-      </fieldset>
     </aside>
   </main>
   <script type="importmap">
@@ -123,246 +123,17 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       message.hidden = false;
       message.textContent = `Viewer error:\n${{formatViewerError(error, fallbackMessage)}}`;
     }}
-    window.addEventListener('error', (event) => {{
-      showViewerError(event.error, event.message);
-    }});
-    window.addEventListener('unhandledrejection', (event) => {{
-      showViewerError(event.reason, 'Unhandled promise rejection');
-    }});
-  </script>
-  <script>
+    window.addEventListener('error', (event) => {{ showViewerError(event.error, event.message); }});
+    window.addEventListener('unhandledrejection', (event) => {{ showViewerError(event.reason, 'Unhandled promise rejection'); }});
     window.STL_MODEL_DATA = {model_data_json};
-    window.STL_SOURCE_NAME = {json.dumps(stl_path.name)};
+    window.STL_SOURCE_NAME = {source_name_json};
   </script>
   <script type="module">
-    import * as THREE from 'three';
-    import {{ OrbitControls }} from 'three/addons/controls/OrbitControls.js';
-    import {{ STLLoader }} from 'three/addons/loaders/STLLoader.js';
-    import {{ TransformControls }} from 'three/addons/controls/TransformControls.js';
-
-    const embeddedModel = {model_data_json};
-    const viewport = document.querySelector('#viewport');
-    const status = document.querySelector('#status');
-    const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111827);
-    const camera = new THREE.PerspectiveCamera(45, 1, 0.01, 100000);
-    const renderer = new THREE.WebGLRenderer({{ antialias: true }});
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    viewport.appendChild(renderer.domElement);
-    const controls = new OrbitControls(camera, renderer.domElement);
-    controls.enableDamping = true;
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x334155, 2));
-    const keyLight = new THREE.DirectionalLight(0xffffff, 2);
-    keyLight.position.set(1, 2, 3);
-    scene.add(keyLight);
-    scene.add(new THREE.GridHelper(10, 10, 0x475569, 0x334155));
-
-    let mesh;
-    let sourceName = {json.dumps(stl_path.name)};
-    let sourcePositions;
-    let selectedVertex;
-    const vertexRaycaster = new THREE.Raycaster();
-    const pointer = new THREE.Vector2();
-    const vertexHandle = new THREE.Mesh(
-      new THREE.SphereGeometry(1, 12, 8),
-      new THREE.MeshBasicMaterial({{ color: 0xfbbf24 }})
-    );
-    vertexHandle.name = 'vertex-gizmo';
-    vertexHandle.visible = false;
-    scene.add(vertexHandle);
-    const vertexGizmo = new TransformControls(camera, renderer.domElement);
-    vertexGizmo.setMode('translate');
-    vertexGizmo.name = 'vertex-gizmo';
-    scene.add(vertexGizmo);
-    const sourceTransform = {{ position: new THREE.Vector3(), rotation: new THREE.Euler(), scale: new THREE.Vector3(1, 1, 1) }};
-
-    function resize() {{
-      const width = viewport.clientWidth;
-      const height = viewport.clientHeight;
-      camera.aspect = width / Math.max(height, 1);
-      camera.updateProjectionMatrix();
-      renderer.setSize(width, height, false);
-    }}
-
-    function fitCamera() {{
-      if (!mesh) return;
-      const box = new THREE.Box3().setFromObject(mesh);
-      const sphere = box.getBoundingSphere(new THREE.Sphere());
-      const distance = sphere.radius / Math.sin(THREE.MathUtils.degToRad(camera.fov / 2));
-      camera.position.set(sphere.center.x + distance, sphere.center.y + distance * 0.6, sphere.center.z + distance);
-      camera.near = Math.max(distance / 1000, 0.001);
-      camera.far = Math.max(distance * 100, 1000);
-      camera.updateProjectionMatrix();
-      controls.target.copy(sphere.center);
-      controls.update();
-    }}
-
-    function inputValue(id) {{ return Number(document.querySelector(id).value) || 0; }}
-
-    function applyTransform() {{
-      if (!mesh) return;
-      mesh.position.set(inputValue('#position-x'), inputValue('#position-y'), inputValue('#position-z'));
-      mesh.rotation.set(
-        THREE.MathUtils.degToRad(inputValue('#rotation-x')),
-        THREE.MathUtils.degToRad(inputValue('#rotation-y')),
-        THREE.MathUtils.degToRad(inputValue('#rotation-z'))
-      );
-      const scale = Math.max(inputValue('#scale'), 0.001);
-      mesh.scale.setScalar(scale);
-    }}
-
-    function updateVertexStatus(message) {{
-      document.querySelector('#vertex-status').textContent = message;
-    }}
-
-    function clearVertexSelection() {{
-      selectedVertex = null;
-      vertexHandle.visible = false;
-      vertexGizmo.detach();
-      updateVertexStatus('Select vertex: click a vertex on model.');
-    }}
-
-    function selectVertex(event) {{
-      if (vertexGizmo.dragging || !mesh) return;
-      const bounds = renderer.domElement.getBoundingClientRect();
-      pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-      pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
-      vertexRaycaster.setFromCamera(pointer, camera);
-      const hit = vertexRaycaster.intersectObject(mesh, false)[0];
-      if (!hit || hit.faceIndex === undefined) return;
-      const positions = mesh.geometry.getAttribute('position');
-      const localPoint = mesh.worldToLocal(hit.point.clone());
-      const triangleStart = hit.faceIndex * 3;
-      let nearestIndex = triangleStart;
-      let nearestDistance = Infinity;
-      for (let index = triangleStart; index < triangleStart + 3; index += 1) {{
-        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
-        const distance = candidate.distanceToSquared(localPoint);
-        if (distance < nearestDistance) {{
-          nearestDistance = distance;
-          nearestIndex = index;
-        }}
-      }}
-      const selectedPosition = new THREE.Vector3().fromBufferAttribute(positions, nearestIndex);
-      const radius = mesh.geometry.boundingSphere?.radius || 1;
-      const epsilon = Math.max(radius * 0.00001, 0.000001);
-      const indices = [];
-      for (let index = 0; index < positions.count; index += 1) {{
-        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
-        if (candidate.distanceTo(selectedPosition) <= epsilon) indices.push(index);
-      }}
-      selectedVertex = {{ indices, position: selectedPosition.clone() }};
-      vertexHandle.position.copy(mesh.localToWorld(selectedPosition.clone()));
-      vertexHandle.scale.setScalar(Math.max(radius * 0.025, 0.1));
-      vertexHandle.visible = true;
-      vertexGizmo.attach(vertexHandle);
-      updateVertexStatus(`Selected vertex: ${{indices.length}} connected triangles. Drag axis gizmo.`);
-    }}
-
-    function updateSelectedVertex() {{
-      if (!selectedVertex) return;
-      const positions = mesh.geometry.getAttribute('position');
-      const nextPosition = mesh.worldToLocal(vertexHandle.position.clone());
-      const delta = nextPosition.clone().sub(selectedVertex.position);
-      if (delta.lengthSq() === 0) return;
-      selectedVertex.indices.forEach((index) => {{
-        const current = new THREE.Vector3().fromBufferAttribute(positions, index).add(delta);
-        positions.setXYZ(index, current.x, current.y, current.z);
-      }});
-      selectedVertex.position.copy(nextPosition);
-      positions.needsUpdate = true;
-      mesh.geometry.computeVertexNormals();
-      updateVertexStatus(`Selected vertex: ${{selectedVertex.indices.length}} connected triangles updated.`);
-    }}
-
-    function resetVertices() {{
-      const positions = mesh.geometry.getAttribute('position');
-      positions.array.set(sourcePositions);
-      positions.needsUpdate = true;
-      mesh.geometry.computeVertexNormals();
-      clearVertexSelection();
-    }}
-
-    function reset() {{
-      document.querySelectorAll('input').forEach((input) => {{ input.value = input.id === 'scale' ? '1' : '0'; }});
-      applyTransform();
-      resetVertices();
-      fitCamera();
-    }}
-
-    function downloadEditedStl() {{
-      mesh.updateMatrixWorld(true);
-      const positions = mesh.geometry.getAttribute('position');
-      const triangleCount = Math.floor(positions.count / 3);
-      const buffer = new ArrayBuffer(84 + triangleCount * 50);
-      const view = new DataView(buffer);
-      const encoder = new TextEncoder();
-      const header = encoder.encode('Edited by STL HTML Viewer');
-      new Uint8Array(buffer, 0, header.length).set(header);
-      view.setUint32(80, triangleCount, true);
-      const first = new THREE.Vector3();
-      const second = new THREE.Vector3();
-      const third = new THREE.Vector3();
-      const normal = new THREE.Vector3();
-      for (let triangle = 0; triangle < triangleCount; triangle += 1) {{
-        const offset = 84 + triangle * 50;
-        first.fromBufferAttribute(positions, triangle * 3).applyMatrix4(mesh.matrixWorld);
-        second.fromBufferAttribute(positions, triangle * 3 + 1).applyMatrix4(mesh.matrixWorld);
-        third.fromBufferAttribute(positions, triangle * 3 + 2).applyMatrix4(mesh.matrixWorld);
-        normal.subVectors(second, first).cross(new THREE.Vector3().subVectors(third, first)).normalize();
-        [normal, first, second, third].forEach((vector, index) => {{
-          view.setFloat32(offset + index * 12, vector.x, true);
-          view.setFloat32(offset + 4 + index * 12, vector.y, true);
-          view.setFloat32(offset + 8 + index * 12, vector.z, true);
-        }});
-        view.setUint16(offset + 48, 0, true);
-      }}
-      const filename = sourceName.replace(/\\.stl$/i, '') + '-edited.stl';
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(new Blob([buffer], {{ type: 'model/stl' }}));
-      link.download = filename;
-      link.click();
-      URL.revokeObjectURL(link.href);
-    }}
-
-    const bytes = Uint8Array.from(atob(embeddedModel.split(',')[1]), (character) => character.charCodeAt(0));
-    mesh = new THREE.Mesh(new STLLoader().parse(bytes.buffer), new THREE.MeshStandardMaterial({{ color: 0x60a5fa, roughness: 0.65, metalness: 0.05 }}));
-    scene.add(mesh);
-    document.querySelector('#viewport-message').hidden = true;
-    mesh.geometry.computeVertexNormals();
-    sourcePositions = new Float32Array(mesh.geometry.getAttribute('position').array);
-    renderer.domElement.addEventListener('pointerdown', selectVertex);
-    vertexGizmo.addEventListener('dragging-changed', (event) => {{ controls.enabled = !event.value; }});
-    vertexGizmo.addEventListener('objectChange', updateSelectedVertex);
-    document.querySelectorAll('input').forEach((input) => input.addEventListener('input', applyTransform));
-    document.querySelector('#reset').addEventListener('click', reset);
-    document.querySelector('#reset-vertices').addEventListener('click', resetVertices);
-    document.querySelector('#save').addEventListener('click', downloadEditedStl);
-    document.querySelector('#help').addEventListener('click', () => {{
-      const panel = document.querySelector('#controls-legend');
-      const visible = !panel.hidden;
-      panel.hidden = visible;
-      document.querySelector('#help').textContent = visible ? 'Show controls' : 'Hide controls';
-      panel.focus({{ preventScroll: true }});
-    }});
-    status.textContent = `${{mesh.geometry.getAttribute('position').count / 3}} triangles`;
-    window.addEventListener('resize', resize);
-    resize();
-    fitCamera();
-    renderer.setAnimationLoop(() => {{ controls.update(); renderer.render(scene, camera); }});
+{viewer_script}
   </script>
 </body>
 </html>
 '''
-    viewer_script = Path(__file__).with_name("stl_viewer.js").read_text(encoding="utf-8")
-    inline_viewer_script = "<script type=\"module\">\n" + viewer_script + "\n</script>"
-    return re.sub(
-        r'<script type="module">.*?</script>',
-        lambda _: inline_viewer_script,
-        generated_html,
-        count=1,
-        flags=re.DOTALL,
-    )
 
 
 def main() -> int:
@@ -380,8 +151,6 @@ def main() -> int:
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(build_html(args.input_file, args.input_file.read_bytes()), encoding="utf-8")
-        viewer_script = Path(__file__).with_name("stl_viewer.js")
-        output_path.with_name("stl_viewer.js").write_text(viewer_script.read_text(encoding="utf-8"), encoding="utf-8")
     except OSError as error:
         print(f"Could not write HTML output: {error}", file=sys.stderr)
         return 1

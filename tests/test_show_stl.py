@@ -38,11 +38,8 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     html_path = tmp_path / "model.html"
     assert html_path.exists()
     html = html_path.read_text()
-    viewer_script = (tmp_path / "stl_viewer.js").read_text()
-    assets = html + viewer_script
-    assert "STLLoader" in assets
+    assert "STLLoader" in html
     assert '<script type="module">' in html
-    assert (tmp_path / "stl_viewer.js").exists()
     assert "Save as STL" in html
     assert "position" in html
     assert "rotation" in html
@@ -59,7 +56,7 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "Mouse wheel" in html
     assert "Save as STL" in html
     assert "data:model/stl;base64," in html
-    assert "getHelper" not in assets
+    assert "getHelper" not in html
     assert "viewport-message" in html
     assert "Loading 3D model..." not in html
     assert "Viewer error:" in html
@@ -88,15 +85,13 @@ def test_declares_vertex_editing_controls(tmp_path):
 
     assert result.returncode == 0
     html = (tmp_path / "model.html").read_text()
-    viewer_script = (tmp_path / "stl_viewer.js").read_text()
-    assets = html + viewer_script
-    assert "Vertex editing" in assets
-    assert "Select vertex" in assets
-    assert "vertex-gizmo" in assets
-    assert "selectedVertex" in assets
-    assert "connected triangles" in assets
-    assert "Reset vertex edits" in assets
-    assert "Save as STL" in assets
+    assert "Vertex editing" in html
+    assert "Select vertex" in html
+    assert "vertex-gizmo" in html
+    assert "selectedVertex" in html
+    assert "connected triangles" in html
+    assert "Reset vertex edits" in html
+    assert "Save as STL" in html
 
 
 def test_missing_input_returns_error(tmp_path):
