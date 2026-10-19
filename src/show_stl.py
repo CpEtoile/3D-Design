@@ -2,6 +2,7 @@ import argparse
 import base64
 import html
 import json
+import re
 import sys
 import webbrowser
 from pathlib import Path
@@ -14,7 +15,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     model_data = base64.b64encode(stl_bytes).decode("ascii")
     title = html.escape(stl_path.name)
     model_data_json = json.dumps(f"data:model/stl;base64,{model_data}")
-    return f'''<!doctype html>
+    generated_html = f'''<!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
@@ -128,6 +129,10 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     window.addEventListener('unhandledrejection', (event) => {{
       showViewerError(event.reason, 'Unhandled promise rejection');
     }});
+  </script>
+  <script>
+    window.STL_MODEL_DATA = {model_data_json};
+    window.STL_SOURCE_NAME = {json.dumps(stl_path.name)};
   </script>
   <script type="module">
     import * as THREE from 'three';
@@ -349,6 +354,15 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
 </body>
 </html>
 '''
+    viewer_script = Path(__file__).with_name("stl_viewer.js").read_text(encoding="utf-8")
+    inline_viewer_script = "<script type=\"module\">\n" + viewer_script + "\n</script>"
+    return re.sub(
+        r'<script type="module">.*?</script>',
+        lambda _: inline_viewer_script,
+        generated_html,
+        count=1,
+        flags=re.DOTALL,
+    )
 
 
 def main() -> int:
@@ -366,6 +380,8 @@ def main() -> int:
     try:
         output_path.parent.mkdir(parents=True, exist_ok=True)
         output_path.write_text(build_html(args.input_file, args.input_file.read_bytes()), encoding="utf-8")
+        viewer_script = Path(__file__).with_name("stl_viewer.js")
+        output_path.with_name("stl_viewer.js").write_text(viewer_script.read_text(encoding="utf-8"), encoding="utf-8")
     except OSError as error:
         print(f"Could not write HTML output: {error}", file=sys.stderr)
         return 1
