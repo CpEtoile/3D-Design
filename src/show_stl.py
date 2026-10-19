@@ -29,7 +29,8 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     #help {{ margin-left: auto; width: auto; padding: 6px 10px; }}
     main {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: calc(100vh - 53px); }}
     #viewport {{ min-width: 0; min-height: 0; position: relative; }}
-    aside {{ padding: 16px; overflow-y: auto; background: #1f2937; border-left: 1px solid #374151; }}
+    aside {{ display: flex; flex-direction: column; padding: 16px; overflow-y: auto; background: #1f2937; border-left: 1px solid #374151; }}
+    #controls-legend {{ order: -1; position: sticky; top: 0; z-index: 5; background: #1f2937; }}
     fieldset {{ margin: 0 0 16px; padding: 12px; border: 1px solid #4b5563; border-radius: 8px; }}
     legend {{ padding: 0 6px; color: #93c5fd; }}
     label {{ display: grid; grid-template-columns: 1fr 90px; gap: 8px; align-items: center; margin: 8px 0; font-size: .875rem; }}
@@ -47,7 +48,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
   </style>
 </head>
 <body>
-  <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Hide controls</button></header>
+  <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Show controls</button></header>
   <main>
     <section id="viewport" aria-label="3D STL model viewer"></section>
     <aside>
@@ -288,7 +289,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         }});
         view.setUint16(offset + 48, 0, true);
       }}
-      const filename = sourceName.replace(/\.stl$/i, '') + '-edited.stl';
+      const filename = sourceName.replace(/\\.stl$/i, '') + '-edited.stl';
       const link = document.createElement('a');
       link.href = URL.createObjectURL(new Blob([buffer], {{ type: 'model/stl' }}));
       link.download = filename;
@@ -313,7 +314,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       const visible = !panel.hidden;
       panel.hidden = visible;
       document.querySelector('#help').textContent = visible ? 'Show controls' : 'Hide controls';
-      if (!visible) panel.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+      panel.focus({{ preventScroll: true }});
     }});
     status.textContent = `${{mesh.geometry.getAttribute('position').count / 3}} triangles`;
     window.addEventListener('resize', resize);
