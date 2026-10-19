@@ -144,7 +144,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     const vertexGizmo = new TransformControls(camera, renderer.domElement);
     vertexGizmo.setMode('translate');
     vertexGizmo.name = 'vertex-gizmo';
-    scene.add(vertexGizmo.getHelper());
+    scene.add(vertexGizmo);
     const sourceTransform = {{ position: new THREE.Vector3(), rotation: new THREE.Euler(), scale: new THREE.Vector3(1, 1, 1) }};
 
     function resize() {{

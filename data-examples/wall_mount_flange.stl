@@ -1,0 +1,30 @@
+solid wall_mount_flange
+facet normal 0 0 1
+ outer loop
+  vertex -55 -30 0
+  vertex 25 -30 0
+  vertex 25 60 0
+ endloop
+endfacet
+facet normal 0 0 1
+ outer loop
+  vertex -55 -30 0
+  vertex 25 60 0
+  vertex -55 60 0
+ endloop
+endfacet
+facet normal 0 0 -1
+ outer loop
+  vertex -55 -30 4
+  vertex 25 60 4
+  vertex 25 -30 4
+ endloop
+endfacet
+facet normal 0 0 -1
+ outer loop
+  vertex -55 -30 4
+  vertex -55 60 4
+  vertex 25 60 4
+ endloop
+endfacet
+endsolid wall_mount_flange

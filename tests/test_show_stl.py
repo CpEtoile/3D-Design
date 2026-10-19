@@ -54,6 +54,7 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "Mouse wheel" in html
     assert "Save as STL" in html
     assert "data:model/stl;base64," in html
+    assert "getHelper" not in html
 
 
 def test_supports_explicit_output_path(tmp_path):
