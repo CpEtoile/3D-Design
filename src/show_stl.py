@@ -51,7 +51,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
   </style>
 </head>
 <body>
-  <header><h1>{title}</h1><span id="status">Loading...</span><button id="show-control" class="secondary">Show controls</button></header>
+  <header><h1>{title}</h1><span id="status">Loading...</span><button id="show-control" class="secondary">Hide controls</button></header>
   <main>
     <section id="viewport" aria-label="3D STL model viewer">
       <div id="viewport-message" hidden></div>

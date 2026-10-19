@@ -48,9 +48,12 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "Explore model" in html
     assert "Manipulate model" in html
     assert "controls-legend" in html
+    assert 'id="show-control"' in html
+    assert "querySelector('#show-control')" in html
     assert "position: sticky" in html
     assert "order: -1" in html
     assert "Show controls" in html
+    assert "Hide controls" in html
     assert "Left mouse drag" in html
     assert "Right mouse drag" in html
     assert "Mouse wheel" in html
