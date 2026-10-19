@@ -56,6 +56,12 @@ def test_generates_html_with_embedded_stl_and_editing_controls(tmp_path):
     assert "Save as STL" in html
     assert "data:model/stl;base64," in html
     assert "getHelper" not in html
+    assert "viewport-message" in html
+    assert "Loading 3D model..." not in html
+    assert "Viewer error:" in html
+    assert "formatViewerError" in html
+    assert "event.error" in html
+    assert "event.reason" in html
 
 
 def test_supports_explicit_output_path(tmp_path):

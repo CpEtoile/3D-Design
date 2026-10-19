@@ -28,7 +28,9 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     header h1 {{ margin: 0; font-size: 1rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }}
     #help {{ margin-left: auto; width: auto; padding: 6px 10px; }}
     main {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: calc(100vh - 53px); }}
-    #viewport {{ min-width: 0; min-height: 0; position: relative; }}
+    #viewport {{ min-width: 0; min-height: 360px; position: relative; background: #0b1220; border-right: 1px solid #374151; }}
+    #viewport canvas {{ display: block; width: 100%; height: 100%; }}
+    #viewport-message {{ position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: #fca5a5; white-space: pre-wrap; overflow: auto; text-align: left; pointer-events: none; }}
     aside {{ display: flex; flex-direction: column; padding: 16px; overflow-y: auto; background: #1f2937; border-left: 1px solid #374151; }}
     #controls-legend {{ order: -1; position: sticky; top: 0; z-index: 5; background: #1f2937; }}
     fieldset {{ margin: 0 0 16px; padding: 12px; border: 1px solid #4b5563; border-radius: 8px; }}
@@ -50,7 +52,9 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
 <body>
   <header><h1>{title}</h1><span id="status">Loading...</span><button id="help" class="secondary">Show controls</button></header>
   <main>
-    <section id="viewport" aria-label="3D STL model viewer"></section>
+    <section id="viewport" aria-label="3D STL model viewer">
+      <div id="viewport-message" hidden></div>
+    </section>
     <aside>
       <fieldset>
         <legend>Position</legend>
@@ -105,6 +109,25 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       "three": "https://cdn.jsdelivr.net/npm/three@{THREE_VERSION}/build/three.module.js",
       "three/addons/": "https://cdn.jsdelivr.net/npm/three@{THREE_VERSION}/examples/jsm/"
     }}}}
+  </script>
+  <script>
+    function formatViewerError(error, fallbackMessage) {{
+      if (error instanceof Error) return error.stack || error.message;
+      if (typeof error === 'string') return error;
+      try {{ return JSON.stringify(error, null, 2); }} catch {{ return fallbackMessage || String(error); }}
+    }}
+    function showViewerError(error, fallbackMessage) {{
+      const message = document.querySelector('#viewport-message');
+      if (!message) return;
+      message.hidden = false;
+      message.textContent = `Viewer error:\n${{formatViewerError(error, fallbackMessage)}}`;
+    }}
+    window.addEventListener('error', (event) => {{
+      showViewerError(event.error, event.message);
+    }});
+    window.addEventListener('unhandledrejection', (event) => {{
+      showViewerError(event.reason, 'Unhandled promise rejection');
+    }});
   </script>
   <script type="module">
     import * as THREE from 'three';
@@ -300,6 +323,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     const bytes = Uint8Array.from(atob(embeddedModel.split(',')[1]), (character) => character.charCodeAt(0));
     mesh = new THREE.Mesh(new STLLoader().parse(bytes.buffer), new THREE.MeshStandardMaterial({{ color: 0x60a5fa, roughness: 0.65, metalness: 0.05 }}));
     scene.add(mesh);
+    document.querySelector('#viewport-message').hidden = true;
     mesh.geometry.computeVertexNormals();
     sourcePositions = new Float32Array(mesh.geometry.getAttribute('position').array);
     renderer.domElement.addEventListener('pointerdown', selectVertex);
