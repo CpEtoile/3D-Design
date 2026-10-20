@@ -19,8 +19,9 @@ As a 3D design user, I want to run a command with an STL path so I can inspect t
 - Show model metadata: file name and triangle count when available.
 - Edit rendered model transform: position, rotation, and scale.
 - Select and move individual mesh vertices with an axis gizmo.
+- Add a new vertex and connect it to existing vertices to form valid triangles.
 - Preview vertex edits before saving.
-- Save edited model from the HTML page as a new binary STL file.
+- Save edited model as a new binary STL file.
 - Open generated HTML in default browser by default.
 - Allow explicit output path.
 - Allow generation without opening browser for scripts and CI.
@@ -120,6 +121,29 @@ The first shape-editing phase adds direct vertex manipulation:
 
 Vertex editing changes mesh geometry but does not add or remove triangles. STL files do not retain original parametric dimensions, so controls such as wall thickness or named hole diameter are not available for arbitrary imported STL files.
 
+### Adding a vertex and connecting to existing vertices
+
+STL files only support complete 3-vertex facets (triangles). Free floating vertices or standalone edges cannot exist in STL geometry. Therefore, adding a vertex must always form complete triangles.
+
+Connecting a new vertex to existing vertices supports two workflows:
+
+1. **Automatic Triangle Subdivision (Split mode):**
+   - Click any point on an existing triangle face.
+   - Places new vertex $P$ at intersection point.
+   - Automatically replaces the hit triangle $(V_A, V_B, V_C)$ with three new triangles: $(V_A, V_B, P)$, $(V_B, V_C, P)$, and $(V_C, V_A, P)$.
+   - Preserves closed surface manifold topology.
+
+2. **Manual Vertex Connection (Connect mode):**
+   - User activates `Add & Connect Vertex` mode.
+   - Step 1: Click to place new vertex position $P$ on model surface. A temporary point marker highlights $P$.
+   - Step 2: Hover/click existing vertices on model to select connections.
+     - Select 2 existing vertices $(V_1, V_2)$ to create one triangle $(P, V_1, V_2)$.
+     - User can select additional vertex pairs to create fan or bridge connections around $P$.
+   - Step 3: Click `Complete` or automatically finalize once triangle is formed.
+   - Normal is computed automatically based on right-hand rule or matching adjacent face orientations.
+   - Triangle count in status bar increments accordingly.
+   - Cancel button discards pending unattached vertex without corrupting mesh.
+
 ## 7. Technical Design
 
 - Python standard library handles argument parsing, file reading, base64 encoding, and browser launch.
@@ -147,7 +171,7 @@ Vertex editing changes mesh geometry but does not add or remove triangles. STL f
 
 ## 9. Editing Boundary
 
-This version treats "edit shape" as transform editing plus direct vertex movement. It changes model placement, orientation, size, and vertex positions while preserving triangle count and mesh topology.
+This version treats "edit shape" as transform editing, direct vertex movement, and vertex insertion with triangle formation. All edits maintain valid triangle meshes for STL export.
 
 Cutting, hole creation, boolean union/subtraction, face extrusion, and mesh repair remain separate editor phases because they need topology changes, validation, and more extensive export testing.
 
@@ -164,3 +188,5 @@ Verify generated HTML exists, then open it in browser and confirm model renders,
 Change position, rotation, and scale. Confirm rendered model updates. Export edited STL and confirm source file remains unchanged.
 
 Select a vertex, move it along each axis, confirm connected triangles update, reset vertex edits, and save a new STL. Confirm source file remains unchanged and saved STL contains moved vertex geometry.
+
+Add a vertex by clicking a triangle or picking existing vertices to connect, confirm new triangles render, normals update, and exported STL contains newly created faces.

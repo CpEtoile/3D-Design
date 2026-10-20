@@ -97,6 +97,22 @@ def test_declares_vertex_editing_controls(tmp_path):
     assert "Save as STL" in html
 
 
+def test_declares_add_and_connect_vertex_controls(tmp_path):
+    stl_path = tmp_path / "model.stl"
+    stl_path.write_text(ASCII_STL)
+
+    result = run_viewer(stl_path, "--no-open")
+
+    assert result.returncode == 0
+    html = (tmp_path / "model.html").read_text()
+    assert "Add vertex" in html
+    assert "add-vertex" in html
+    assert "addVertex" in html
+    assert "split" in html.lower()
+    assert "connect" in html.lower()
+    assert "connectVertices" in html
+
+
 def test_missing_input_returns_error(tmp_path):
     result = run_viewer(tmp_path / "missing.stl", "--no-open")
 
