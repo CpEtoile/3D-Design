@@ -20,7 +20,10 @@ scene.add(keyLight);
 scene.add(new THREE.GridHelper(10, 10, 0x475569, 0x334155));
 
 let mesh;
+let initialPositions;
 let selectedVertex;
+let addVertexMode = false;
+let connectPendingVertices = [];
 const vertexRaycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const vertexHandle = new THREE.Mesh(
@@ -74,7 +77,67 @@ function clearVertexSelection() {
     selectedVertex = null;
     vertexHandle.visible = false;
     vertexGizmo.detach();
+    connectPendingVertices = [];
     document.querySelector('#vertex-status').textContent = 'Select vertex: click a vertex on model.';
+}
+
+function selectVertexAtPosition(selectedPosition) {
+    const positions = mesh.geometry.getAttribute('position');
+    const radius = mesh.geometry.boundingSphere?.radius || 1;
+    const epsilon = Math.max(radius * 0.00001, 0.000001);
+    const indices = [];
+    for (let index = 0; index < positions.count; index += 1) {
+        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
+        if (candidate.distanceTo(selectedPosition) <= epsilon) indices.push(index);
+    }
+    selectedVertex = {indices, position: selectedPosition.clone()};
+    vertexHandle.position.copy(mesh.localToWorld(selectedPosition.clone()));
+    vertexHandle.scale.setScalar(Math.max(radius * 0.025, 0.1));
+    vertexHandle.visible = true;
+    vertexGizmo.attach(vertexHandle);
+    document.querySelector('#vertex-status').textContent = `Selected vertex: ${indices.length} connected triangles. Drag axis gizmo.`;
+}
+
+function addVertex(point, faceIndex) {
+    const positions = mesh.geometry.getAttribute('position');
+    const oldArray = positions.array;
+    const offset = faceIndex * 9;
+    const newArray = new Float32Array(oldArray.length + 18);
+    newArray.set(oldArray.subarray(0, offset), 0);
+    const a = [oldArray[offset], oldArray[offset + 1], oldArray[offset + 2]];
+    const b = [oldArray[offset + 3], oldArray[offset + 4], oldArray[offset + 5]];
+    const c = [oldArray[offset + 6], oldArray[offset + 7], oldArray[offset + 8]];
+    const p = [point.x, point.y, point.z];
+    const splitTriangles = [
+        ...a, ...b, ...p,
+        ...b, ...c, ...p,
+        ...c, ...a, ...p
+    ];
+    newArray.set(splitTriangles, offset);
+    newArray.set(oldArray.subarray(offset + 9), offset + 27);
+    mesh.geometry.setAttribute('position', new THREE.BufferAttribute(newArray, 3));
+    mesh.geometry.computeVertexNormals();
+    if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+    if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+    status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triangles`;
+    return point;
+}
+
+function connectVertices(newVertex, vertex1, vertex2) {
+    const positions = mesh.geometry.getAttribute('position');
+    const oldArray = positions.array;
+    const newArray = new Float32Array(oldArray.length + 9);
+    newArray.set(oldArray, 0);
+    newArray.set([
+        newVertex.x, newVertex.y, newVertex.z,
+        vertex1.x, vertex1.y, vertex1.z,
+        vertex2.x, vertex2.y, vertex2.z
+    ], oldArray.length);
+    mesh.geometry.setAttribute('position', new THREE.BufferAttribute(newArray, 3));
+    mesh.geometry.computeVertexNormals();
+    if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+    if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+    status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triangles`;
 }
 
 function selectVertex(event) {
@@ -98,20 +161,27 @@ function selectVertex(event) {
             nearestIndex = index;
         }
     }
-    const selectedPosition = new THREE.Vector3().fromBufferAttribute(positions, nearestIndex);
-    const radius = mesh.geometry.boundingSphere?.radius || 1;
-    const epsilon = Math.max(radius * 0.00001, 0.000001);
-    const indices = [];
-    for (let index = 0; index < positions.count; index += 1) {
-        const candidate = new THREE.Vector3().fromBufferAttribute(positions, index);
-        if (candidate.distanceTo(selectedPosition) <= epsilon) indices.push(index);
+    const nearestPosition = new THREE.Vector3().fromBufferAttribute(positions, nearestIndex);
+
+    if (addVertexMode) {
+        if (event.shiftKey && selectedVertex) {
+            connectPendingVertices.push(nearestPosition);
+            if (connectPendingVertices.length === 2) {
+                connectVertices(selectedVertex.position, connectPendingVertices[0], connectPendingVertices[1]);
+                connectPendingVertices = [];
+                document.querySelector('#vertex-status').textContent = 'Connected new triangle to chosen vertices.';
+            } else {
+                document.querySelector('#vertex-status').textContent = 'Selected 1 vertex to connect. Shift-click 1 more vertex.';
+            }
+        } else {
+            addVertex(localPoint, hit.faceIndex);
+            selectVertexAtPosition(localPoint);
+            document.querySelector('#vertex-status').textContent = 'Added vertex: split triangle into 3 triangles. Drag axis gizmo or Shift-click to connect.';
+        }
+        return;
     }
-    selectedVertex = {indices, position: selectedPosition.clone()};
-    vertexHandle.position.copy(mesh.localToWorld(selectedPosition.clone()));
-    vertexHandle.scale.setScalar(Math.max(radius * 0.025, 0.1));
-    vertexHandle.visible = true;
-    vertexGizmo.attach(vertexHandle);
-    document.querySelector('#vertex-status').textContent = `Selected vertex: ${indices.length} connected triangles. Drag axis gizmo.`;
+
+    selectVertexAtPosition(nearestPosition);
 }
 
 function updateSelectedVertex() {
@@ -127,6 +197,19 @@ function updateSelectedVertex() {
     selectedVertex.position.copy(nextPosition);
     positions.needsUpdate = true;
     mesh.geometry.computeVertexNormals();
+    if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+    if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+}
+
+function resetVertices() {
+    if (!mesh || !initialPositions) return;
+    mesh.geometry.setAttribute('position', new THREE.BufferAttribute(new Float32Array(initialPositions), 3));
+    mesh.geometry.computeVertexNormals();
+    if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+    if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+    clearVertexSelection();
+    connectPendingVertices = [];
+    status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triangles`;
 }
 
 function reset() {
@@ -134,7 +217,7 @@ function reset() {
         input.value = input.id === 'scale' ? '1' : '0';
     });
     applyTransform();
-    clearVertexSelection();
+    resetVertices();
     fitCamera();
 }
 
@@ -175,9 +258,13 @@ mesh = new THREE.Mesh(new STLLoader().parse(Uint8Array.from(atob(window.STL_MODE
     roughness: 0.65,
     metalness: 0.05
 }));
+mesh.frustumCulled = false;
 scene.add(mesh);
 document.querySelector('#viewport-message').hidden = true;
 mesh.geometry.computeVertexNormals();
+if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+initialPositions = new Float32Array(mesh.geometry.getAttribute('position').array);
 renderer.domElement.addEventListener('pointerdown', selectVertex);
 vertexGizmo.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
@@ -185,7 +272,18 @@ vertexGizmo.addEventListener('dragging-changed', (event) => {
 vertexGizmo.addEventListener('objectChange', updateSelectedVertex);
 document.querySelectorAll('input').forEach((input) => input.addEventListener('input', applyTransform));
 document.querySelector('#reset').addEventListener('click', reset);
-document.querySelector('#reset-vertices').addEventListener('click', clearVertexSelection);
+document.querySelector('#reset-vertices').addEventListener('click', resetVertices);
+const addVertexButton = document.querySelector('#add-vertex');
+if (addVertexButton) {
+    addVertexButton.addEventListener('click', () => {
+        addVertexMode = !addVertexMode;
+        connectPendingVertices = [];
+        addVertexButton.textContent = addVertexMode ? 'Exit add vertex' : 'Add vertex';
+        document.querySelector('#vertex-status').textContent = addVertexMode
+            ? 'Add vertex active: click triangle to split, or Shift-click to connect chosen vertices.'
+            : 'Select vertex: click a vertex on model.';
+    });
+}
 document.querySelector('#save').addEventListener('click', downloadEditedStl);
 const showControl = document.querySelector('#show-control');
 showControl.addEventListener('click', () => {
