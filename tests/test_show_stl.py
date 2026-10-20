@@ -127,7 +127,9 @@ let mesh = {{
     }},
     getAttribute(name) {{ return this._attributes[name]; }},
     setAttribute(name, attr) {{ this._attributes[name] = attr; }},
-    computeVertexNormals() {{ this.normalsComputed = true; }}
+    computeVertexNormals() {{ this.normalsComputed = true; }},
+    computeBoundingBox() {{ this.boundingBoxComputed = true; }},
+    computeBoundingSphere() {{ this.boundingSphereComputed = true; }}
   }}
 }};
 let selectedVertex = null;
@@ -171,13 +173,17 @@ console.log(JSON.stringify({
   count,
   pos,
   status: status.textContent,
-  normalsComputed: Boolean(mesh.geometry.normalsComputed)
+  normalsComputed: Boolean(mesh.geometry.normalsComputed),
+  boundingBoxComputed: Boolean(mesh.geometry.boundingBoxComputed),
+  boundingSphereComputed: Boolean(mesh.geometry.boundingSphereComputed)
 }));
 """)
     # 2 initial triangles (6 vertices) + split (+2 triangles / +6 vertices) = 4 triangles (12 vertices)
     assert payload["count"] == 12
     assert payload["status"] == "4 triangles"
     assert payload["normalsComputed"] is True
+    assert payload["boundingBoxComputed"] is True
+    assert payload["boundingSphereComputed"] is True
 
     # Face 0 split into 3 triangles: (A, B, P), (B, C, P), (C, A, P)
     pos = payload["pos"]
@@ -202,13 +208,17 @@ console.log(JSON.stringify({
   count,
   pos,
   status: status.textContent,
-  normalsComputed: Boolean(mesh.geometry.normalsComputed)
+  normalsComputed: Boolean(mesh.geometry.normalsComputed),
+  boundingBoxComputed: Boolean(mesh.geometry.boundingBoxComputed),
+  boundingSphereComputed: Boolean(mesh.geometry.boundingSphereComputed)
 }));
 """)
     # 2 initial triangles (6 vertices) + 1 added triangle (3 vertices) = 3 triangles (9 vertices)
     assert payload["count"] == 9
     assert payload["status"] == "3 triangles"
     assert payload["normalsComputed"] is True
+    assert payload["boundingBoxComputed"] is True
+    assert payload["boundingSphereComputed"] is True
 
     # Initial 2 triangles untouched
     assert payload["pos"][:18] == [0, 0, 0, 1, 0, 0, 0, 1, 0, 10, 10, 10, 11, 10, 10, 10, 11, 10]
@@ -276,6 +286,22 @@ def test_controls_legend_documents_add_vertex_options(tmp_path):
 
     assert "[Vertex] Add vertex:" in html
     assert "split triangle or connect to chosen vertices" in html
+
+
+def test_mesh_disables_frustum_culling_and_updates_bounds_for_cpu_rendering(tmp_path):
+    stl_path = tmp_path / "model.stl"
+    stl_path.write_text(ASCII_STL)
+
+    result = run_viewer(stl_path, "--no-open")
+    assert result.returncode == 0
+    html = (tmp_path / "model.html").read_text()
+
+    # Disable CPU frustum culling so mesh never drops when editing
+    assert "mesh.frustumCulled = false;" in html
+
+    # Ensure bounds recomputation prevents disappearing mesh
+    assert "mesh.geometry.computeBoundingBox" in html
+    assert "mesh.geometry.computeBoundingSphere" in html
 
 
 def test_missing_input_returns_error(tmp_path):
