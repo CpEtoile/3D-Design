@@ -1,22 +1,10 @@
 import argparse
 
-def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float, inner_w: float, inner_h: float, thickness: float):
-    # src/generate_rect_cover.py
-    # eg "cover4.stl_ascii.stl"
-    output_file = output_file_name
-
-    # Dimensions (mm)
-    # outer_w = 70.0  # 7 cm outer width
-    # outer_h = 70.0  # 7 cm outer height
-    # inner_w = 60.0  # 6 cm inner width
-    # inner_h = 60.0  # 6 cm inner height
-    # thickness = 4.0  # keep 4mm height
-
-    # Half-dimensions (centered at origin)
-    ow = outer_w / 2  # 35
-    oh = outer_h / 2  # 35
-    iw = inner_w / 2  # 30
-    ih = inner_h / 2  # 30
+def generate_form_and_file(output_file_name: str, outer_width: float, outer_length: float, inner_width: float, inner_length: float, height: float):
+    ow = outer_width / 2
+    ol = outer_length / 2
+    iw = inner_width / 2
+    il = inner_length / 2
 
     def write_facet(f, normal, v1, v2, v3):
         f.write(f"  facet normal {normal[0]} {normal[1]} {normal[2]}\n")
@@ -27,16 +15,14 @@ def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float
         f.write("    endloop\n")
         f.write("  endfacet\n")
 
-    with open(output_file, "w") as f:
+    with open(output_file_name, "w") as f:
         f.write("solid ascii_model\n")
 
         z0 = 0.0
-        z1 = thickness
+        z1 = height
 
-        # Outer corners (bottom-left, bottom-right, top-right, top-left)
-        o = [(-ow, -oh), (ow, -oh), (ow, oh), (-ow, oh)]
-        # Inner corners
-        i = [(-iw, -ih), (iw, -ih), (iw, ih), (-iw, ih)]
+        o = [(-ow, -ol), (ow, -ol), (ow, ol), (-ow, ol)]
+        i = [(-iw, -il), (iw, -il), (iw, il), (-iw, il)]
 
         # --- Bottom face (z=0), normal (0, 0, -1) ---
         # 8 triangles to form the rectangular ring on bottom
@@ -95,21 +81,22 @@ def generate_form_and_file(output_file_name: str, outer_w: float, outer_h: float
 
         f.write("endsolid ascii_model\n")
 
-    print(f"Generated: {output_file}")
-    print(f"  Outer: {outer_w}mm x {outer_h}mm (7cm x 7cm)")
-    print(f"  Inner hole: {inner_w}mm x {inner_h}mm (6cm x 6cm)")
-    print(f"  Height: {thickness}mm")
-    print(f"  Wall thickness: {(outer_w - inner_w) / 2}mm")
+    print(f"Generated: {output_file_name}")
+    print(f"  Outer: {outer_width}mm x {outer_length}mm ({outer_width/10}cm x {outer_length/10}cm)")
+    print(f"  Inner hole: {inner_width}mm x {inner_length}mm ({inner_width/10}cm x {inner_length/10}cm)")
+    print(f"  Height: {height}mm ({height/10}cm)")
+    print(f"  Wall thickness X: {(outer_width - inner_width) / 2}mm ({(outer_width - inner_width) / 20}cm)")
+    print(f"  Wall thickness Y: {(outer_length - inner_length) / 2}mm ({(outer_length - inner_length) / 20}cm)")
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate a rectangular frame STL file.")
-    parser.add_argument("output_file_name", type=str, help="Output STL file name (e.g. cover4.stl_ascii.stl)")
-    parser.add_argument("outer_w", type=float, help="Outer width in mm")
-    parser.add_argument("outer_h", type=float, help="Outer height in mm")
-    parser.add_argument("inner_w", type=float, help="Inner width in mm")
-    parser.add_argument("inner_h", type=float, help="Inner height in mm")
-    parser.add_argument("thickness", type=float, help="Thickness (height) in mm")
+    parser.add_argument("-o", "--output", dest="output_file_name", type=str, required=True, help="Output STL file name")
+    parser.add_argument("--outer-width", dest="outer_width", type=float, required=True, help="Outer width X (mm)")
+    parser.add_argument("--outer-length", dest="outer_length", type=float, required=True, help="Outer length Y (mm)")
+    parser.add_argument("--inner-width", dest="inner_width", type=float, required=True, help="Inner hole width X (mm)")
+    parser.add_argument("--inner-length", dest="inner_length", type=float, required=True, help="Inner hole length Y (mm)")
+    parser.add_argument("--height", dest="height", type=float, required=True, help="Height Z (mm)")
 
     args = parser.parse_args()
-    generate_form_and_file(args.output_file_name, args.outer_w, args.outer_h, args.inner_w, args.inner_h, args.thickness)
+    generate_form_and_file(args.output_file_name, args.outer_width, args.outer_length, args.inner_width, args.inner_length, args.height)
