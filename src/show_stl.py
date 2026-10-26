@@ -94,6 +94,18 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
         <div class="dim-row"><span>Width (X):</span> <strong id="dim-x">-</strong> cm</div>
         <div class="dim-row"><span>Depth (Y):</span> <strong id="dim-y">-</strong> cm</div>
         <div class="dim-row"><span>Height (Z):</span> <strong id="dim-z">-</strong> cm</div>
+        <div style="margin-top: 10px;">
+          <label style="grid-template-columns: 1fr auto;"><input id="toggle-rulers" type="checkbox" checked style="width: auto;"> Show edge rulers</label>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Measure tool (ruler)</legend>
+        <p id="measure-status" style="font-size: 0.8rem; color: #9ca3af; margin: 0 0 8px;">Click two points on model to measure distance.</p>
+        <div class="dim-row"><span>Distance:</span> <strong id="measure-dist">-</strong> cm</div>
+        <div class="buttons" style="margin-top: 8px;">
+          <button id="toggle-measure" class="secondary">Start measuring</button>
+          <button id="clear-measure" class="secondary">Clear measurement</button>
+        </div>
       </fieldset>
       <fieldset>
         <legend>Position</legend>

@@ -21,6 +21,13 @@ scene.add(new THREE.GridHelper(10, 10, 0x475569, 0x334155));
 
 let mesh;
 let bboxHelper;
+let rulersGroup = new THREE.Group();
+scene.add(rulersGroup);
+
+let measureGroup = new THREE.Group();
+scene.add(measureGroup);
+let measureMode = false;
+let measurePoints = [];
 let initialPositions;
 let selectedVertex;
 let addVertexMode = false;
@@ -63,6 +70,113 @@ function inputValue(selector) {
     return Number(document.querySelector(selector).value) || 0;
 }
 
+function createTextSprite(text, color = '#38bdf8') {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.font = 'bold 28px monospace';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 32);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.minFilter = THREE.LinearFilter;
+    const spriteMat = new THREE.SpriteMaterial({map: texture, depthTest: false});
+    const sprite = new THREE.Sprite(spriteMat);
+    sprite.renderOrder = 999;
+    return sprite;
+}
+
+function updateRulers() {
+    while (rulersGroup.children.length > 0) {
+        const obj = rulersGroup.children[0];
+        rulersGroup.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (obj.material.map) obj.material.map.dispose();
+            obj.material.dispose();
+        }
+    }
+
+    const showRulers = document.querySelector('#toggle-rulers')?.checked ?? true;
+    if (!showRulers || !mesh) return;
+
+    mesh.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(mesh);
+    if (box.isEmpty()) return;
+
+    const unitScale = Number(document.querySelector('#unit-scale')?.value) || 0.1;
+    const min = box.min;
+    const max = box.max;
+    const size = new THREE.Vector3();
+    box.getSize(size);
+
+    const stepWorld = 1 / unitScale;
+    const tickLen = Math.max(Math.min(size.x, size.y, size.z) * 0.04, 0.5);
+    const spriteScale = Math.max(Math.max(size.x, size.y, size.z) * 0.25, 2.0);
+
+    const linePositions = [];
+
+    // X ruler along (min.y, min.z)
+    linePositions.push(min.x, min.y, min.z, max.x, min.y, min.z);
+    for (let x = min.x; x <= max.x + 0.001; x += stepWorld) {
+        linePositions.push(x, min.y, min.z, x, min.y - tickLen, min.z);
+    }
+    const spriteX = createTextSprite(`${(size.x * unitScale).toFixed(1)} cm`, '#38bdf8');
+    spriteX.position.set((min.x + max.x) / 2, min.y - tickLen * 2.5, min.z);
+    spriteX.scale.set(spriteScale, spriteScale * 0.25, 1);
+    rulersGroup.add(spriteX);
+
+    // Y ruler along (min.x, min.z)
+    linePositions.push(min.x, min.y, min.z, min.x, max.y, min.z);
+    for (let y = min.y; y <= max.y + 0.001; y += stepWorld) {
+        linePositions.push(min.x, y, min.z, min.x - tickLen, y, min.z);
+    }
+    const spriteY = createTextSprite(`${(size.y * unitScale).toFixed(1)} cm`, '#38bdf8');
+    spriteY.position.set(min.x - tickLen * 2.5, (min.y + max.y) / 2, min.z);
+    spriteY.scale.set(spriteScale, spriteScale * 0.25, 1);
+    rulersGroup.add(spriteY);
+
+    // Z ruler along (max.x, min.y)
+    linePositions.push(max.x, min.y, min.z, max.x, min.y, max.z);
+    for (let z = min.z; z <= max.z + 0.001; z += stepWorld) {
+        linePositions.push(max.x, min.y, z, max.x + tickLen, min.y, z);
+    }
+    const spriteZ = createTextSprite(`${(size.z * unitScale).toFixed(1)} cm`, '#38bdf8');
+    spriteZ.position.set(max.x + tickLen * 2.5, min.y, (min.z + max.z) / 2);
+    spriteZ.scale.set(spriteScale, spriteScale * 0.25, 1);
+    rulersGroup.add(spriteZ);
+
+    const lineGeom = new THREE.BufferGeometry();
+    lineGeom.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+    const lineMat = new THREE.LineBasicMaterial({color: 0x38bdf8, depthTest: false, transparent: true, opacity: 0.85});
+    const rulerLines = new THREE.LineSegments(lineGeom, lineMat);
+    rulerLines.renderOrder = 998;
+    rulersGroup.add(rulerLines);
+}
+
+function clearMeasurement() {
+    measurePoints = [];
+    while (measureGroup.children.length > 0) {
+        const obj = measureGroup.children[0];
+        measureGroup.remove(obj);
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+            if (obj.material.map) obj.material.map.dispose();
+            obj.material.dispose();
+        }
+    }
+    const distEl = document.querySelector('#measure-dist');
+    if (distEl) distEl.textContent = '-';
+    const statusEl = document.querySelector('#measure-status');
+    if (statusEl) {
+        statusEl.textContent = measureMode
+            ? 'Measure active: click point A on model.'
+            : 'Click two points on model to measure distance.';
+    }
+}
+
 function updateDimensions() {
     if (!mesh) return;
     if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
@@ -88,6 +202,7 @@ function updateDimensions() {
         hud.textContent = `Size: ${cmX.toFixed(2)} × ${cmY.toFixed(2)} × ${cmZ.toFixed(2)} cm (W × D × H)`;
     }
     if (bboxHelper) bboxHelper.update();
+    updateRulers();
 }
 
 function applyTransform() {
@@ -213,6 +328,72 @@ function selectVertex(event) {
     selectVertexAtPosition(nearestPosition);
 }
 
+function handlePointerDown(event) {
+    if (measureMode) {
+        handleMeasureClick(event);
+        return;
+    }
+    selectVertex(event);
+}
+
+function handleMeasureClick(event) {
+    const bounds = renderer.domElement.getBoundingClientRect();
+    pointer.x = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+    pointer.y = -((event.clientY - bounds.top) / bounds.height) * 2 + 1;
+    vertexRaycaster.setFromCamera(pointer, camera);
+    const hit = vertexRaycaster.intersectObject(mesh, false)[0];
+    if (!hit) return;
+
+    const unitScale = Number(document.querySelector('#unit-scale')?.value) || 0.1;
+    const clickedPoint = hit.point.clone();
+
+    if (measurePoints.length >= 2) {
+        clearMeasurement();
+    }
+
+    const box = new THREE.Box3().setFromObject(mesh);
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const markerRadius = Math.max(Math.max(size.x, size.y, size.z) * 0.015, 0.2);
+
+    const marker = new THREE.Mesh(
+        new THREE.SphereGeometry(1, 12, 8),
+        new THREE.MeshBasicMaterial({color: 0xf59e0b, depthTest: false})
+    );
+    marker.renderOrder = 1000;
+    marker.scale.setScalar(markerRadius);
+    marker.position.copy(clickedPoint);
+    measureGroup.add(marker);
+    measurePoints.push(clickedPoint);
+
+    const statusEl = document.querySelector('#measure-status');
+    const distEl = document.querySelector('#measure-dist');
+
+    if (measurePoints.length === 1) {
+        if (statusEl) statusEl.textContent = 'Point A set. Click point B on model.';
+    } else if (measurePoints.length === 2) {
+        const p1 = measurePoints[0];
+        const p2 = measurePoints[1];
+        const dist = p1.distanceTo(p2) * unitScale;
+
+        if (distEl) distEl.textContent = dist.toFixed(2);
+        if (statusEl) statusEl.textContent = `Measured: ${dist.toFixed(2)} cm. Click again to measure new pair.`;
+
+        const lineGeom = new THREE.BufferGeometry().setFromPoints([p1, p2]);
+        const lineMat = new THREE.LineBasicMaterial({color: 0xf59e0b, depthTest: false});
+        const line = new THREE.Line(lineGeom, lineMat);
+        line.renderOrder = 1000;
+        measureGroup.add(line);
+
+        const midPoint = new THREE.Vector3().addVectors(p1, p2).multiplyScalar(0.5);
+        const sprite = createTextSprite(`${dist.toFixed(2)} cm`, '#f59e0b');
+        sprite.position.copy(midPoint);
+        const spriteScale = Math.max(Math.max(size.x, size.y, size.z) * 0.2, 1.5);
+        sprite.scale.set(spriteScale, spriteScale * 0.25, 1);
+        measureGroup.add(sprite);
+    }
+}
+
 function updateSelectedVertex() {
     if (!selectedVertex) return;
     const positions = mesh.geometry.getAttribute('position');
@@ -299,7 +480,7 @@ mesh.geometry.computeVertexNormals();
 if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
 if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
 initialPositions = new Float32Array(mesh.geometry.getAttribute('position').array);
-renderer.domElement.addEventListener('pointerdown', selectVertex);
+renderer.domElement.addEventListener('pointerdown', handlePointerDown);
 vertexGizmo.addEventListener('dragging-changed', (event) => {
     controls.enabled = !event.value;
 });
@@ -307,6 +488,22 @@ vertexGizmo.addEventListener('objectChange', updateSelectedVertex);
 document.querySelectorAll('input').forEach((input) => input.addEventListener('input', applyTransform));
 const unitScaleSelect = document.querySelector('#unit-scale');
 if (unitScaleSelect) unitScaleSelect.addEventListener('change', updateDimensions);
+const toggleRulersCheckbox = document.querySelector('#toggle-rulers');
+if (toggleRulersCheckbox) toggleRulersCheckbox.addEventListener('change', updateRulers);
+
+const toggleMeasureButton = document.querySelector('#toggle-measure');
+if (toggleMeasureButton) {
+    toggleMeasureButton.addEventListener('click', () => {
+        measureMode = !measureMode;
+        toggleMeasureButton.textContent = measureMode ? 'Exit measure tool' : 'Start measuring';
+        toggleMeasureButton.className = measureMode ? '' : 'secondary';
+        clearMeasurement();
+    });
+}
+
+const clearMeasureButton = document.querySelector('#clear-measure');
+if (clearMeasureButton) clearMeasureButton.addEventListener('click', clearMeasurement);
+
 document.querySelector('#reset').addEventListener('click', reset);
 document.querySelector('#reset-vertices').addEventListener('click', resetVertices);
 const addVertexButton = document.querySelector('#add-vertex');
