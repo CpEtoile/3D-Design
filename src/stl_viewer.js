@@ -20,6 +20,7 @@ scene.add(keyLight);
 scene.add(new THREE.GridHelper(10, 10, 0x475569, 0x334155));
 
 let mesh;
+let bboxHelper;
 let initialPositions;
 let selectedVertex;
 let addVertexMode = false;
@@ -62,6 +63,33 @@ function inputValue(selector) {
     return Number(document.querySelector(selector).value) || 0;
 }
 
+function updateDimensions() {
+    if (!mesh) return;
+    if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
+    const box = mesh.geometry.boundingBox.clone();
+    const size = new THREE.Vector3();
+    box.getSize(size);
+    const scale = Math.max(inputValue('#scale'), 0.001);
+    const unitScale = Number(document.querySelector('#unit-scale')?.value) || 0.1;
+
+    const cmX = size.x * scale * unitScale;
+    const cmY = size.y * scale * unitScale;
+    const cmZ = size.z * scale * unitScale;
+
+    const elX = document.querySelector('#dim-x');
+    const elY = document.querySelector('#dim-y');
+    const elZ = document.querySelector('#dim-z');
+    if (elX) elX.textContent = cmX.toFixed(2);
+    if (elY) elY.textContent = cmY.toFixed(2);
+    if (elZ) elZ.textContent = cmZ.toFixed(2);
+
+    const hud = document.querySelector('#viewport-hud');
+    if (hud) {
+        hud.textContent = `Size: ${cmX.toFixed(2)} × ${cmY.toFixed(2)} × ${cmZ.toFixed(2)} cm (W × D × H)`;
+    }
+    if (bboxHelper) bboxHelper.update();
+}
+
 function applyTransform() {
     if (!mesh) return;
     mesh.position.set(inputValue('#position-x'), inputValue('#position-y'), inputValue('#position-z'));
@@ -71,6 +99,7 @@ function applyTransform() {
         THREE.MathUtils.degToRad(inputValue('#rotation-z'))
     );
     mesh.scale.setScalar(Math.max(inputValue('#scale'), 0.001));
+    updateDimensions();
 }
 
 function clearVertexSelection() {
@@ -199,6 +228,7 @@ function updateSelectedVertex() {
     mesh.geometry.computeVertexNormals();
     if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
     if (mesh.geometry.computeBoundingSphere) mesh.geometry.computeBoundingSphere();
+    updateDimensions();
 }
 
 function resetVertices() {
@@ -210,6 +240,7 @@ function resetVertices() {
     clearVertexSelection();
     connectPendingVertices = [];
     status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triangles`;
+    updateDimensions();
 }
 
 function reset() {
@@ -260,6 +291,9 @@ mesh = new THREE.Mesh(new STLLoader().parse(Uint8Array.from(atob(window.STL_MODE
 }));
 mesh.frustumCulled = false;
 scene.add(mesh);
+
+bboxHelper = new THREE.BoxHelper(mesh, 0x38bdf8);
+scene.add(bboxHelper);
 document.querySelector('#viewport-message').hidden = true;
 mesh.geometry.computeVertexNormals();
 if (mesh.geometry.computeBoundingBox) mesh.geometry.computeBoundingBox();
@@ -271,6 +305,8 @@ vertexGizmo.addEventListener('dragging-changed', (event) => {
 });
 vertexGizmo.addEventListener('objectChange', updateSelectedVertex);
 document.querySelectorAll('input').forEach((input) => input.addEventListener('input', applyTransform));
+const unitScaleSelect = document.querySelector('#unit-scale');
+if (unitScaleSelect) unitScaleSelect.addEventListener('change', updateDimensions);
 document.querySelector('#reset').addEventListener('click', reset);
 document.querySelector('#reset-vertices').addEventListener('click', resetVertices);
 const addVertexButton = document.querySelector('#add-vertex');
@@ -295,6 +331,7 @@ status.textContent = `${mesh.geometry.getAttribute('position').count / 3} triang
 window.addEventListener('resize', resize);
 resize();
 fitCamera();
+updateDimensions();
 renderer.setAnimationLoop(() => {
     controls.update();
     renderer.render(scene, camera);

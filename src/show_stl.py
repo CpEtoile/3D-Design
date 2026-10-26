@@ -32,13 +32,17 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
     main {{ display: grid; grid-template-columns: minmax(0, 1fr) 280px; height: calc(100vh - 53px); }}
     #viewport {{ min-width: 0; min-height: 360px; position: relative; background: #0b1220; border-right: 1px solid #374151; }}
     #viewport canvas {{ display: block; width: 100%; height: 100%; }}
+    #viewport-hud {{ position: absolute; top: 16px; left: 16px; background: rgba(17, 24, 39, 0.85); border: 1px solid #374151; padding: 8px 14px; border-radius: 6px; font-size: 0.9rem; color: #93c5fd; font-weight: 500; font-family: monospace; pointer-events: none; z-index: 10; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5); }}
     #viewport-message {{ position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: #fca5a5; white-space: pre-wrap; overflow: auto; text-align: left; pointer-events: none; }}
     aside {{ display: flex; flex-direction: column; padding: 16px; overflow-y: auto; background: #1f2937; border-left: 1px solid #374151; }}
     #controls-legend {{ order: -1; position: sticky; top: 0; z-index: 5; background: #1f2937; }}
     fieldset {{ margin: 0 0 16px; padding: 12px; border: 1px solid #4b5563; border-radius: 8px; }}
     legend {{ padding: 0 6px; color: #93c5fd; }}
     label {{ display: grid; grid-template-columns: 1fr 90px; gap: 8px; align-items: center; margin: 8px 0; font-size: .875rem; }}
-    input, button {{ width: 100%; border: 1px solid #4b5563; border-radius: 5px; padding: 7px 8px; background: #111827; color: inherit; }}
+    #dimensions-panel label {{ grid-template-columns: 1fr 140px; }}
+    .dim-row {{ display: flex; justify-content: space-between; margin: 6px 0; font-size: .85rem; color: #d1d5db; }}
+    .dim-row strong {{ color: #93c5fd; font-family: monospace; font-size: .95rem; }}
+    input, select, button {{ width: 100%; border: 1px solid #4b5563; border-radius: 5px; padding: 7px 8px; background: #111827; color: inherit; }}
     button {{ cursor: pointer; background: #2563eb; border-color: #3b82f6; }}
     button.secondary {{ background: #374151; border-color: #6b7280; }}
     .buttons {{ display: grid; gap: 8px; }}
@@ -54,6 +58,7 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
   <header><h1>{title}</h1><span id="status">Loading...</span><button id="show-control" class="secondary">Hide controls</button></header>
   <main>
     <section id="viewport" aria-label="3D STL model viewer">
+      <div id="viewport-hud">Size: calculating...</div>
       <div id="viewport-message" hidden></div>
     </section>
     <aside>
@@ -73,10 +78,22 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
             <li><strong>[Move] Position fields:</strong> move model on X, Y, or Z axis.</li>
             <li><strong>[Rotate] Rotation fields:</strong> rotate model around X, Y, or Z axis.</li>
             <li><strong>[Scale] Uniform scale:</strong> change model size.</li>
+            <li><strong>[Vertex] Add vertex:</strong> split triangle or connect to chosen vertices.</li>
             <li><strong>[Reset] Reset view and edits:</strong> restore original transform and fitted camera.</li>
             <li><strong>[Save] Save as STL:</strong> download current edits as binary STL.</li>
           </ul>
         </div>
+      </fieldset>
+      <fieldset id="dimensions-panel">
+        <legend>Dimensions (cm)</legend>
+        <label>Unit scale <select id="unit-scale">
+          <option value="0.1" selected>STL is mm (&times;0.1 &rarr; cm)</option>
+          <option value="1">STL is cm (&times;1 &rarr; cm)</option>
+          <option value="0.001">STL is m (&times;100 &rarr; cm)</option>
+        </select></label>
+        <div class="dim-row"><span>Width (X):</span> <strong id="dim-x">-</strong> cm</div>
+        <div class="dim-row"><span>Depth (Y):</span> <strong id="dim-y">-</strong> cm</div>
+        <div class="dim-row"><span>Height (Z):</span> <strong id="dim-z">-</strong> cm</div>
       </fieldset>
       <fieldset>
         <legend>Position</legend>
@@ -101,7 +118,10 @@ def build_html(stl_path: Path, stl_bytes: bytes) -> str:
       <fieldset>
         <legend>Vertex editing</legend>
         <p id="vertex-status">Select vertex: click a vertex on model.</p>
-        <button id="reset-vertices" class="secondary">Reset vertex edits</button>
+        <div class="buttons">
+          <button id="add-vertex" class="secondary">Add vertex</button>
+          <button id="reset-vertices" class="secondary">Reset vertex edits</button>
+        </div>
       </fieldset>
     </aside>
   </main>
