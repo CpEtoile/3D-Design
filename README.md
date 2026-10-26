@@ -10,7 +10,13 @@ Open an STL file in an interactive browser viewer:
 python3 src/show_stl.py model.stl
 ```
 
-The command creates `model.html` beside the STL file and opens it in the default browser.
+For example, to view the generated rectangular frame:
+
+```bash
+python3 src/show_stl.py output.stl
+```
+
+The command creates `output.html` (or `<filename>.html`) beside the STL file and opens it in the default browser. It reads mesh geometry, calculates dimensions, and displays measurements in centimeters (assuming standard millimeter STL coordinates).
 
 Generate HTML without opening a browser:
 
@@ -23,6 +29,31 @@ Choose an output path:
 ```bash
 python3 src/show_stl.py model.stl --output viewer.html
 ```
+
+## Generate Rectangular Frame STL
+
+Generate a hollow rectangular tube/frame STL file using millimeter units:
+
+```bash
+python3 src/generate_rectangle_from.py \
+  --output output.stl \
+  --outer-width 40 \
+  --outer-length 40 \
+  --inner-width 30 \
+  --inner-length 30 \
+  --height 50
+```
+
+Parameters:
+
+- `-o, --output`: output STL file path (e.g. `output.stl`)
+- `--outer-width`: outer width along X axis in mm (e.g. `40` for 4 cm)
+- `--outer-length`: outer length along Y axis in mm (e.g. `40` for 4 cm)
+- `--inner-width`: inner hole width along X axis in mm (e.g. `30` for 3 cm)
+- `--inner-length`: inner hole length along Y axis in mm (e.g. `30` for 3 cm)
+- `--height`: vertical extrusion height along Z axis in mm (e.g. `50` for 5 cm)
+
+Produces an ASCII STL centered on X and Y, sitting on Z=0. Wall thickness is `(outer - inner) / 2` (5 mm / 0.5 cm in example above).
 
 Viewer features:
 
