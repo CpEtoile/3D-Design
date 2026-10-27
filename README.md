@@ -55,6 +55,27 @@ Parameters:
 
 Produces an ASCII STL centered on X and Y, sitting on Z=0. Wall thickness is `(outer - inner) / 2` (5 mm / 0.5 cm in example above).
 
+## Merge Two STL Files
+
+Merge two STL models along an axis with controlled overlap/intersection:
+
+```bash
+python3 src/merge_stl.py \
+  --base output.stl \
+  --attach part_top.stl \
+  --output merged.stl \
+  --axis z \
+  --overlap 5
+```
+
+Parameters:
+
+- `--base`: base STL file path
+- `--attach`: secondary STL file to attach
+- `-o, --output`: merged output STL file path
+- `--axis`: axis to stack along (`x`, `y`, or `z`, default `z`)
+- `--overlap`: intersection amount in mm (e.g. `5` sinks the attached part 5 mm into the base)
+
 Viewer features:
 
 - Orbit, pan, and zoom model
