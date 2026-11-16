@@ -44,16 +44,33 @@ python3 src/generate_rectangle_from.py \
   --height 50
 ```
 
+For asymmetric width (e.g. left side wider than right side):
+
+```bash
+python3 src/generate_rectangle_from.py \
+  --output output.stl \
+  --outer-left 40 \
+  --outer-right 20 \
+  --outer-length 40 \
+  --inner-width 30 \
+  --inner-length 30 \
+  --height 50
+```
+
 Parameters:
 
 - `-o, --output`: output STL file path (e.g. `output.stl`)
-- `--outer-width`: outer width along X axis in mm (e.g. `40` for 4 cm)
+- `--outer-width`: symmetric outer width along X axis in mm (e.g. `40` for 4 cm)
+- `--outer-left`: outer extent on negative X side in mm (e.g. `40` for 4 cm)
+- `--outer-right`: outer extent on positive X side in mm (e.g. `20` for 2 cm)
 - `--outer-length`: outer length along Y axis in mm (e.g. `40` for 4 cm)
 - `--inner-width`: inner hole width along X axis in mm (e.g. `30` for 3 cm)
 - `--inner-length`: inner hole length along Y axis in mm (e.g. `30` for 3 cm)
 - `--height`: vertical extrusion height along Z axis in mm (e.g. `50` for 5 cm)
 
-Produces an ASCII STL centered on X and Y, sitting on Z=0. Wall thickness is `(outer - inner) / 2` (5 mm / 0.5 cm in example above).
+Note: Specify either `--outer-width` or both `--outer-left` and `--outer-right`.
+
+Produces an ASCII STL centered on X and Y (or offset along X if using `--outer-left` and `--outer-right`), sitting on Z=0. Wall thickness is `(outer - inner) / 2` when symmetric, or `outer_left - inner_width / 2` / `outer_right - inner_width / 2` when asymmetric.
 
 ## Merge Two STL Files
 
@@ -105,9 +122,10 @@ Install pytest:
 python3 -m pip install pytest
 ```
 
-Run viewer tests:
+Run tests:
 
 ```bash
+python3 -m pytest -q tests/test_generate_rectangle_from.py
 python3 -m pytest -q tests/test_show_stl.py
 ```
 

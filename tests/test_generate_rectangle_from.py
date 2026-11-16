@@ -82,3 +82,16 @@ def test_missing_width_and_left_right_errors(tmp_path):
         "--height", 50,
     )
     assert result.returncode != 0
+
+
+def test_missing_one_of_left_or_right_errors(tmp_path):
+    output_stl = tmp_path / "missing_one.stl"
+    result = run_generator(
+        "--output", output_stl,
+        "--outer-left", 40,
+        "--outer-length", 40,
+        "--inner-width", 30,
+        "--inner-length", 30,
+        "--height", 50,
+    )
+    assert result.returncode != 0
